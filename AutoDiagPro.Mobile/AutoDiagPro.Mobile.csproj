@@ -10,7 +10,7 @@
     <ApplicationTitle>AutoDiag Pro</ApplicationTitle>
     <ApplicationId>com.autodiagpro.app</ApplicationId>
     <ApplicationDisplayVersion>2.2.0</ApplicationDisplayVersion>
-    <ApplicationVersion>13</ApplicationVersion>
+    <ApplicationVersion>14</ApplicationVersion>
     <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 

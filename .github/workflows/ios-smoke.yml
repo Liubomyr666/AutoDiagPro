@@ -30,7 +30,7 @@ jobs:
         run: |
           dotnet build AutoDiagPro.Mobile.csproj \
             -f net8.0-ios \
-            -c Release \
+            -c Debug \
             -r iossimulator-arm64 \
             -p:EnableCodeSigning=false \
             -p:ArchiveOnBuild=false
@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APP_PATH="$(find AutoDiagPro.Mobile/bin/Release/net8.0-ios/iossimulator-arm64 -type d -name '*.app' | head -n 1)"
+          APP_PATH="$(find AutoDiagPro.Mobile/bin/Debug/net8.0-ios/iossimulator-arm64 -type d -name '*.app' | head -n 1)"
           test -n "$APP_PATH"
           DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
           test -n "$DEVICE"

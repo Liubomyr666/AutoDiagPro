@@ -25,7 +25,7 @@ public sealed class VehiclesPage : ContentPage
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(16, 18, 16, 34),
+                Padding = new Thickness(16, 14, 16, 118),
                 Spacing = 14,
                 Children =
                 {

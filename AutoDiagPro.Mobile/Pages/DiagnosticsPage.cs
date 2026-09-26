@@ -43,7 +43,7 @@ public sealed class DiagnosticsPage : ContentPage
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(18, 24, 18, 40),
+                Padding = new Thickness(16, 16, 16, 118),
                 Spacing = 14,
                 Children =
                 {

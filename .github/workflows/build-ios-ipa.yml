@@ -7,6 +7,7 @@ on:
     paths:
       - "AutoDiagPro.Mobile/**"
       - ".github/workflows/build-ios-ipa.yml"
+      - "global.json"
 
 jobs:
   build-ios:
@@ -23,7 +24,10 @@ jobs:
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "8.0.425"
+
+      - name: Verify .NET
+        run: dotnet --version
 
       - name: Install MAUI iOS workload
         run: |

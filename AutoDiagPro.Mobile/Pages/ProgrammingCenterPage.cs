@@ -65,9 +65,10 @@ public sealed class ProgrammingCenterPage : ContentPage
         };
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
+        if (!await AccessPolicy.RequireStaffAsync(this)) return;
         var name = string.IsNullOrWhiteSpace(_state.PendingModuleTitle) ? "Программирование ECU" : _state.PendingModuleTitle;
         _title.Text = name;
         _subtitle.Text = Description(name);

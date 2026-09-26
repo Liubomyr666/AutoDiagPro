@@ -34,7 +34,7 @@ public sealed class AppShell : Shell
         {
             tabs.Items.Add(Tab("Главная", "dashboard", typeof(ClientDashboardPage), "tab_home.png"));
             tabs.Items.Add(Tab("Авто", "vehicles", typeof(VehiclesPage), "tab_car.png"));
-            tabs.Items.Add(Tab("Диагностика", "diagnostics", typeof(DiagnosticsPage), "tab_scan.png"));
+            tabs.Items.Add(Tab("Сканер", "diagnostics", typeof(DiagnosticsPage), "tab_scan.png"));
             tabs.Items.Add(Tab("Сервис", "clientservice", typeof(ClientServicePage), "tab_service.png"));
             tabs.Items.Add(Tab("Профиль", "more", typeof(ClientMorePage), "tab_profile.png"));
         }
@@ -48,9 +48,9 @@ public sealed class AppShell : Shell
         }
 
         Items.Add(tabs);
-        SetTabBarBackgroundColor(this, Color.FromArgb("#0D1114"));
+        SetTabBarBackgroundColor(this, Color.FromArgb("#0B0F12"));
         SetTabBarForegroundColor(this, Theme.Accent);
-        SetTabBarUnselectedColor(this, Color.FromArgb("#71818B"));
+        SetTabBarUnselectedColor(this, Color.FromArgb("#7B858C"));
         SetTabBarTitleColor(this, Theme.Accent);
         SetNavBarIsVisible(this, false);
     }

@@ -23,6 +23,7 @@ public sealed class ApiService
         using var response = await _http.GetAsync("health", ct);
         return await ReadAsync<ServerHealth>(response, "Проверка сервера", ct);
     }
+
     public async Task<ExternalLoginStartResponse> StartExternalLoginAsync(string provider, CancellationToken ct = default)
     {
         using var response = await _http.PostAsJsonAsync("api/auth/external/start", new
@@ -76,6 +77,7 @@ public sealed class ApiService
         _store.Clear();
         return false;
     }
+
     public async Task LogoutAsync(CancellationToken ct = default)
     {
         if (Session is not null)
@@ -100,6 +102,19 @@ public sealed class ApiService
 
     public Task<List<ServerWorkOrderRecord>> GetWorkOrdersAsync(CancellationToken ct = default) =>
         GetAuthorizedAsync<List<ServerWorkOrderRecord>>("api/work-orders", ct);
+
+    public Task<List<ServerUserRecord>> GetUsersAsync(CancellationToken ct = default) =>
+        GetAuthorizedAsync<List<ServerUserRecord>>("api/admin/users", ct);
+
+    public Task<List<ServerTenantRecord>> GetTenantsAsync(CancellationToken ct = default) =>
+        GetAuthorizedAsync<List<ServerTenantRecord>>("api/platform/tenants", ct);
+
+    public async Task<Guid> CreateVehicleAsync(ServerVehicleCreate request, CancellationToken ct = default)
+    {
+        var created = await PostAuthorizedAsync<CreatedIdResponse>("api/vehicles", request, ct);
+        return created.Id;
+    }
+
     public Task<ServerAiResponse> AskAiAsync(string question, string vehicleContext, bool webSearch, CancellationToken ct = default) =>
         PostAuthorizedAsync<ServerAiResponse>("api/ai/ask", new
         {
@@ -111,7 +126,7 @@ public sealed class ApiService
 
     public async Task UploadScanAsync(Guid vehicleId, string? vin, string adapter, string protocol, int dtcCount, string summary, CancellationToken ct = default)
     {
-        await PostAuthorizedAsync<JsonElement>("api/scans", new
+        await PostAuthorizedAsync<CreatedIdResponse>("api/scans", new
         {
             vehicleId,
             vin,
@@ -122,12 +137,28 @@ public sealed class ApiService
         }, ct);
     }
 
+    public Task<ServerUserCreated> CreateUserAsync(ServerUserCreate request, CancellationToken ct = default) =>
+        PostAuthorizedAsync<ServerUserCreated>("api/admin/users", request, ct);
+
+    public Task UpdateUserAsync(Guid id, ServerUserUpdate request, CancellationToken ct = default) =>
+        SendAuthorizedNoContentAsync(new HttpMethod("PATCH"), $"api/admin/users/{id}", request, ct);
+
+    public Task<ServerPasswordReset> ResetUserPasswordAsync(Guid id, CancellationToken ct = default) =>
+        PostAuthorizedAsync<ServerPasswordReset>($"api/admin/users/{id}/reset-password", new { }, ct);
+
+    public Task<ServerTenantCreated> CreateTenantAsync(ServerTenantCreate request, CancellationToken ct = default) =>
+        PostAuthorizedAsync<ServerTenantCreated>("api/platform/tenants", request, ct);
+
+    public Task SetTenantActiveAsync(Guid id, bool active, CancellationToken ct = default) =>
+        SendAuthorizedNoContentAsync(new HttpMethod("PATCH"), $"api/platform/tenants/{id}", new { isActive = active }, ct);
+
     private async Task<T> GetAuthorizedAsync<T>(string path, CancellationToken ct)
     {
         await EnsureSessionAsync(ct);
         using var response = await SendWithRefreshAsync(() => Authorized(HttpMethod.Get, path), ct);
         return await ReadAsync<T>(response, "AutoDiag Server", ct);
     }
+
     private async Task<T> PostAuthorizedAsync<T>(string path, object payload, CancellationToken ct)
     {
         await EnsureSessionAsync(ct);
@@ -139,6 +170,20 @@ public sealed class ApiService
         }, ct);
 
         return await ReadAsync<T>(response, "AutoDiag Server", ct);
+    }
+
+    private async Task SendAuthorizedNoContentAsync(HttpMethod method, string path, object payload, CancellationToken ct)
+    {
+        await EnsureSessionAsync(ct);
+        using var response = await SendWithRefreshAsync(() =>
+        {
+            var request = Authorized(method, path);
+            request.Content = JsonContent.Create(payload);
+            return request;
+        }, ct);
+
+        if (!response.IsSuccessStatusCode)
+            _ = await ReadAsync<JsonElement>(response, "AutoDiag Server", ct);
     }
 
     private HttpRequestMessage Authorized(HttpMethod method, string path)
@@ -160,6 +205,7 @@ public sealed class ApiService
         using var second = requestFactory();
         return await _http.SendAsync(second, ct);
     }
+
     private async Task EnsureSessionAsync(CancellationToken ct)
     {
         if (Session is null) throw new InvalidOperationException("Сессия не активна.");
@@ -186,6 +232,7 @@ public sealed class ApiService
         }
         catch { return false; }
     }
+
     private async Task<T> ReadAsync<T>(HttpResponseMessage response, string action, CancellationToken ct)
     {
         var body = await response.Content.ReadAsStringAsync(ct);
@@ -197,11 +244,15 @@ public sealed class ApiService
                 using var doc = JsonDocument.Parse(body);
                 if (doc.RootElement.TryGetProperty("detail", out var d)) detail = d.GetString();
                 else if (doc.RootElement.TryGetProperty("error", out var e)) detail = e.GetString();
+                else if (doc.RootElement.TryGetProperty("title", out var t)) detail = t.GetString();
             }
             catch { }
 
             throw new InvalidOperationException($"{action}: {detail ?? body} (HTTP {(int)response.StatusCode})");
         }
+
+        if (typeof(T) == typeof(JsonElement) && string.IsNullOrWhiteSpace(body))
+            return (T)(object)default(JsonElement);
 
         return JsonSerializer.Deserialize<T>(body, _json)
                ?? throw new InvalidOperationException($"{action}: пустой ответ.");

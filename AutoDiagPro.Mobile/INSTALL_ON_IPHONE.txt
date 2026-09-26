@@ -1,28 +1,15 @@
-AutoDiag Pro iOS v1.3.1 — установка на реальный iPhone
+AutoDiag Pro iOS v2.0.0 — AltStore / AltServer
 
-Что уже подготовлено:
-- Target: net8.0-ios
-- Device RID: ios-arm64
-- Release автоматически создаёт archive
-- Bundle ID: com.autodiagpro.app
-- iOS 15+
-- Bluetooth LE / Wi-Fi OBD permissions
-- Камера / фото
-- AutoDiag AI и отдельные DTC-карточки
+1. Подключить iPhone к Windows.
+2. Убедиться, что AltServer запущен.
+3. Зажать Shift и нажать значок AltServer.
+4. Выбрать Sideload .ipa…
+5. Выбрать AutoDiagPro_iOS_v2.0.0_AltStore.ipa.
+6. При запросе Apple ID вводить данные только в AltServer.
+7. На iPhone включить Developer Mode и доверие профилю, если iOS попросит.
 
-На Mac:
-1. Установить Xcode и .NET 8 + MAUI workload.
-2. Войти в Apple ID / Developer Team в Xcode.
-3. Создать/выбрать provisioning profile для com.autodiagpro.app.
-4. Открыть Terminal в этой папке.
-5. chmod +x BUILD_IPA_ON_MAC.command
-6. ./BUILD_IPA_ON_MAC.command
-7. Готовая .ipa появится в bin/Release/net8.0-ios/ios-arm64/publish/
+Bundle ID: com.autodiagpro.app
+Target: iOS 15+
+Architecture: ios-arm64
 
-Для сборки с Windows:
-- Нужен доступный по сети Mac с Xcode.
-- Visual Studio/.NET использует Pair to Mac.
-- Сертификат и provisioning profile должны существовать на Mac.
-
-Важно:
-Windows без Mac/Xcode не может финально собрать и подписать настоящий iOS .ipa.
+IPA собирается unsigned специально для последующей подписи AltStore/AltServer.

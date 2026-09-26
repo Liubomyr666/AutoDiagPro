@@ -1,3 +1,3 @@
-# AutoDiagPro
+# AutoDiag Pro
 
-AutoDiag Pro iOS client and GitHub Actions IPA build for AltStore/AltServer.
+AutoDiag Pro iOS v2.0.0 client. .NET MAUI, OBD BLE/Wi-Fi, AutoDiag Server, Repair Brain, Workshop, AI and AltStore IPA build.

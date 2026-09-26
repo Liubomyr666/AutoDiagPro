@@ -177,8 +177,18 @@ public sealed class DiagnosticsPage : ContentPage
         var dtc = DarkButton("Ошибки DTC");
         dtc.Clicked += DtcClicked;
 
-        var live = DarkButton("Live Data");
-        live.Clicked += LiveClicked;
+        var live = DarkButton("Live Data монитор");
+        live.Clicked += async (_, _) => await Shell.Current.GoToAsync("live");
+
+        var ecu = DarkButton("ECU / Calibration / Readiness");
+        ecu.Clicked += async (_, _) => await Shell.Current.GoToAsync("ecu");
+
+        var repair = DarkButton("Repair Brain");
+        repair.Clicked += async (_, _) => await Shell.Current.GoToAsync("repair");
+
+        var clear = DarkButton("Очистить DTC");
+        clear.TextColor = Theme.Red;
+        clear.Clicked += ClearDtcClicked;
 
         var disconnect = DarkButton("Отключить");
         disconnect.Clicked += async (_, _) =>
@@ -194,7 +204,7 @@ public sealed class DiagnosticsPage : ContentPage
             Children =
             {
                 new Label { Text = "БЫСТРЫЕ ДЕЙСТВИЯ", FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
-                identify, full, dtc, live, disconnect
+                identify, full, dtc, live, ecu, repair, clear, disconnect
             }
         });
     }
@@ -279,6 +289,37 @@ public sealed class DiagnosticsPage : ContentPage
             ShowResult("DTC: " + ex.Message, true);
         }
     }
+
+    private async void ClearDtcClicked(object? sender, EventArgs e)
+    {
+        if (!RequireConnection()) return;
+
+        var yes = await DisplayAlert(
+            "Очистить DTC",
+            "Очистка удалит сохранённые OBD-II ошибки и может сбросить readiness. Делайте это после ремонта/диагностики. Продолжить?",
+            "Очистить",
+            "Отмена");
+
+        if (!yes) return;
+
+        try
+        {
+            await _obd.ClearDtcAsync();
+            await Task.Delay(900);
+            var remaining = await _obd.DtcAsync();
+            _state.LastDtcCodes = remaining;
+            _state.LastDiagnosticAtUtc = DateTimeOffset.UtcNow;
+            ShowResult(remaining.Count == 0
+                ? "DTC очищены. После поездки проверьте readiness и выполните контрольный scan."
+                : "После очистки остались/вернулись DTC: " + string.Join(", ", remaining),
+                remaining.Count > 0);
+        }
+        catch (Exception ex)
+        {
+            ShowResult("Очистка DTC: " + ex.Message, true);
+        }
+    }
+
     private async void LiveClicked(object? sender, EventArgs e)
     {
         if (!RequireConnection()) return;
@@ -304,11 +345,16 @@ public sealed class DiagnosticsPage : ContentPage
             var protocol = await _obd.ProtocolAsync();
             var voltage = await _obd.VoltageAsync();
             var dtc = await _obd.DtcAsync();
+            var readiness = await _obd.ReadinessAsync();
+            var ecu = await _obd.EcuInfoAsync();
             var live = await _obd.LiveSnapshotAsync();
 
-            var summary = $"VIN: {vin}\nПротокол: {protocol}\nНапряжение: {voltage}\n" +
-                          (dtc.Count == 0 ? "DTC: ошибок нет" : $"DTC: {string.Join(", ", dtc)}") +
-                          "\n" + string.Join("\n", live.Select(x => $"{x.Key}: {x.Value}"));
+            var summary =
+                $"VIN: {vin}\nПротокол: {protocol}\nНапряжение: {voltage}\n" +
+                (dtc.Count == 0 ? "DTC: ошибок нет" : $"DTC: {string.Join(", ", dtc)}") +
+                "\n\nECU / CALIBRATION\n" + string.Join("\n", ecu.Select(x => $"{x.Key}: {x.Value}")) +
+                "\n\nREADINESS\n" + string.Join("\n", readiness.Select(x => $"{x.Key}: {x.Value}")) +
+                "\n\nLIVE DATA\n" + string.Join("\n", live.Select(x => $"{x.Key}: {x.Value}"));
 
             _state.LastDiagnosticSummary = summary;
             _state.LastDtcCodes = dtc;
@@ -360,6 +406,7 @@ public sealed class DiagnosticsPage : ContentPage
 
         foreach (var code in codes.Distinct(StringComparer.OrdinalIgnoreCase))
         {
+            var suggestion = DtcRepairAdvisor.Analyze(code);
             var output = Theme.MutedText("AI-анализ ещё не запущен.");
             output.LineBreakMode = LineBreakMode.WordWrap;
 
@@ -424,7 +471,15 @@ public sealed class DiagnosticsPage : ContentPage
                         FontSize = 20,
                         FontAttributes = FontAttributes.Bold
                     },
-                    Theme.MutedText("Отдельная карточка ошибки • AutoDiag AI"),
+                    new Label
+                    {
+                        Text = suggestion.Summary,
+                        TextColor = Theme.Text,
+                        FontSize = 13,
+                        FontAttributes = FontAttributes.Bold
+                    },
+                    Theme.MutedText("Что проверить:\n• " + string.Join("\n• ", suggestion.Checks)),
+                    Theme.MutedText("Возможные детали после подтверждения:\n• " + string.Join("\n• ", suggestion.PossibleParts)),
                     new HorizontalStackLayout
                     {
                         Spacing = 8,

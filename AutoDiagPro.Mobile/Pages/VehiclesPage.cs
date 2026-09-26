@@ -49,6 +49,11 @@ public sealed class VehiclesPage : ContentPage
         var refresh = Theme.CompactButton("Обновить");
         refresh.Clicked += async (_, _) => await LoadAsync();
 
+        var add = Theme.CompactButton("+ Авто");
+        add.Clicked += async (_, _) => await Shell.Current.GoToAsync("addvehicle");
+
+        var actions = new HorizontalStackLayout { Spacing = 7, Children = { add, refresh } };
+
         var grid = new Grid
         {
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) }
@@ -58,7 +63,7 @@ public sealed class VehiclesPage : ContentPage
             Spacing = 4,
             Children = { Theme.Eyebrow("VEHICLE WORKSPACE"), Theme.H1("Автомобиль"), _status }
         }, 0, 0);
-        grid.Add(refresh, 1, 0);
+        grid.Add(actions, 1, 0);
         return grid;
     }
 

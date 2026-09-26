@@ -16,21 +16,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Select Xcode 16.4
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.425"
+
       - name: Verify .NET
         run: dotnet --version
+
       - name: Install MAUI iOS workload
         run: |
           dotnet workload install maui-ios
           dotnet workload list
+
       - name: Restore
         working-directory: AutoDiagPro.Mobile
         run: dotnet restore AutoDiagPro.Mobile.csproj
+
       - name: Build unsigned iPhone app
         working-directory: AutoDiagPro.Mobile
         run: |
@@ -40,6 +46,7 @@ jobs:
             -r ios-arm64 \
             -p:EnableCodeSigning=false \
             -p:ArchiveOnBuild=false
+
       - name: Create unsigned IPA for AltStore
         shell: bash
         run: |
@@ -53,13 +60,14 @@ jobs:
           mkdir -p ipa/Payload
           cp -R "$APP_PATH" ipa/Payload/
           cd ipa
-          /usr/bin/zip -qry ../AutoDiagPro_iOS_v1.4.0_AltStore.ipa Payload
+          /usr/bin/zip -qry ../AutoDiagPro_iOS_v2.0.0_AltStore.ipa Payload
           cd ..
-          ls -lh AutoDiagPro_iOS_v1.4.0_AltStore.ipa
+          ls -lh AutoDiagPro_iOS_v2.0.0_AltStore.ipa
+
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: AutoDiagPro-iOS-v1.4.0-AltStore
-          path: AutoDiagPro_iOS_v1.4.0_AltStore.ipa
+          name: AutoDiagPro-iOS-v2.0.0-AltStore
+          path: AutoDiagPro_iOS_v2.0.0_AltStore.ipa
           if-no-files-found: error
           retention-days: 30

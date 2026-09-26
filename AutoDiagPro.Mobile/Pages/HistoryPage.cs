@@ -14,6 +14,7 @@ public sealed class HistoryPage : ContentPage
     {
         Title = "История";
         BackgroundColor = Theme.Page;
+        Shell.SetNavBarIsVisible(this, true);
         _list.ItemTemplate = new DataTemplate(BuildScanCard);
 
         var root = new Grid

@@ -13,6 +13,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<SessionStore>();
         builder.Services.AddSingleton<ApiService>();
         builder.Services.AddSingleton<MobileState>();
+        builder.Services.AddSingleton<MobileWorkspaceStore>();
+        builder.Services.AddSingleton<QrScannerService>();
         builder.Services.AddSingleton<WifiObdTransport>();
         builder.Services.AddSingleton<BleObdTransport>();
         builder.Services.AddSingleton<Elm327Service>();

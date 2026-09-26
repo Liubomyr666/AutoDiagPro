@@ -71,23 +71,30 @@ public sealed class MorePage : ContentPage
 
     private View ModuleRow(string title, string subtitle)
     {
-        var card = Theme.CardView(new Grid
+        var grid = new Grid
         {
             ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
+            ColumnSpacing = 10
+        };
+        grid.Add(new VerticalStackLayout
+        {
+            Spacing = 4,
             Children =
             {
-                new VerticalStackLayout
-                {
-                    Spacing = 4,
-                    Children =
-                    {
-                        new Label { Text = title, FontSize = 15, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
-                        Theme.MutedText(subtitle)
-                    }
-                },
-                new Label { Text = "›", FontSize = 28, TextColor = Theme.Accent, VerticalTextAlignment = TextAlignment.Center, HorizontalOptions = LayoutOptions.End }
+                new Label { Text = title, FontSize = 15, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                Theme.MutedText(subtitle)
             }
-        }, new Thickness(14));
+        }, 0, 0);
+        grid.Add(new Label
+        {
+            Text = "›",
+            FontSize = 28,
+            TextColor = Theme.Accent,
+            VerticalTextAlignment = TextAlignment.Center,
+            HorizontalOptions = LayoutOptions.End
+        }, 1, 0);
+
+        var card = Theme.CardView(grid, new Thickness(14));
 
         var tap = new TapGestureRecognizer();
         tap.Tapped += async (_, _) => await OpenAsync(title, subtitle);
@@ -97,9 +104,34 @@ public sealed class MorePage : ContentPage
 
     private async Task OpenAsync(string title, string subtitle)
     {
-        if (title is "Подключение OBD" or "Быстрое сканирование" or "Ошибки DTC" or "Живые данные")
+        if (title is "Подключение OBD" or "Быстрое сканирование" or "Ошибки DTC")
         {
             await Shell.Current.GoToAsync("//diagnostics");
+            return;
+        }
+        if (title == "Живые данные")
+        {
+            await Shell.Current.GoToAsync("live");
+            return;
+        }
+        if (title == "Блоки управления ECU")
+        {
+            await Shell.Current.GoToAsync("ecu");
+            return;
+        }
+        if (title == "Пробег / износ")
+        {
+            await Shell.Current.GoToAsync("mileage");
+            return;
+        }
+        if (title == "Шины / колодки")
+        {
+            await Shell.Current.GoToAsync("wear");
+            return;
+        }
+        if (title == "Repair Brain / До-После")
+        {
+            await Shell.Current.GoToAsync("repair");
             return;
         }
         if (title == "AI Помощник")
@@ -107,14 +139,41 @@ public sealed class MorePage : ContentPage
             await Shell.Current.GoToAsync("ai");
             return;
         }
-        if (title == "История диагностики")
+        if (title == "Сервис / ТО")
+        {
+            await Shell.Current.GoToAsync("service");
+            return;
+        }
+        if (title == "Детали по VIN")
+        {
+            await Shell.Current.GoToAsync("parts");
+            return;
+        }
+        if (title is "История диагностики")
         {
             await Shell.Current.GoToAsync("history");
+            return;
+        }
+        if (title == "Отчёты")
+        {
+            await Shell.Current.GoToAsync("reports");
+            return;
+        }
+        if (title is "Пользователи / роли" or "Администрирование")
+        {
+            await Shell.Current.GoToAsync("admin");
             return;
         }
         if (title == "Настройки")
         {
             await Shell.Current.GoToAsync("settings");
+            return;
+        }
+        if (title is "Программирование ECU" or "Tuning / Stage" or "Кодирование / Адаптации" or "Ключи и иммобилайзер" or "Сервисные функции ECU" or "АКБ / Battery Coding")
+        {
+            _state.PendingModuleTitle = title;
+            _state.PendingModuleSubtitle = subtitle;
+            await Shell.Current.GoToAsync("programming");
             return;
         }
 

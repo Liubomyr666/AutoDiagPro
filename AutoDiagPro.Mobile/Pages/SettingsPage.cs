@@ -28,6 +28,7 @@ public sealed class SettingsPage : ContentPage
     {
         Title = "Настройки";
         BackgroundColor = Theme.Page;
+        Shell.SetNavBarIsVisible(this, true);
         StyleEntry(_host);
         StyleEntry(_port);
         StyleEntry(_partsRegion);
@@ -74,6 +75,7 @@ public sealed class SettingsPage : ContentPage
                         Children =
                         {
                             new Label { Text = "AUTODIAG SERVER", FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                            Theme.MutedText($"AutoDiag Pro iOS v{AppInfo.Current.VersionString} • build {AppInfo.Current.BuildString}"),
                             _server,
                             logout
                         }

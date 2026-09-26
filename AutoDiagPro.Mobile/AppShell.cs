@@ -13,6 +13,20 @@ public sealed class AppShell : Shell
         Routing.RegisterRoute("history", typeof(HistoryPage));
         Routing.RegisterRoute("settings", typeof(SettingsPage));
         Routing.RegisterRoute("module", typeof(ModulePage));
+        Routing.RegisterRoute("live", typeof(LiveDataPage));
+        Routing.RegisterRoute("ecu", typeof(EcuInfoPage));
+        Routing.RegisterRoute("repair", typeof(RepairBrainPage));
+        Routing.RegisterRoute("service", typeof(ServicePlannerPage));
+        Routing.RegisterRoute("parts", typeof(PartsPage));
+        Routing.RegisterRoute("reports", typeof(ReportsPage));
+        Routing.RegisterRoute("admin", typeof(AdminPage));
+        Routing.RegisterRoute("addvehicle", typeof(AddVehiclePage));
+        Routing.RegisterRoute("programming", typeof(ProgrammingCenterPage));
+        Routing.RegisterRoute("qrparts", typeof(QrPartsPage));
+        Routing.RegisterRoute("workshopmanager", typeof(WorkshopManagerPage));
+        Routing.RegisterRoute("mileage", typeof(MileagePage));
+        Routing.RegisterRoute("wear", typeof(WearPage));
+        Routing.RegisterRoute("inventory", typeof(InventoryPage));
 
         var tabs = new TabBar();
         tabs.Items.Add(Tab("Главная", "dashboard", typeof(DashboardPage)));

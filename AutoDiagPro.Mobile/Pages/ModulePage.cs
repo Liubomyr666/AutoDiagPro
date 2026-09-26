@@ -12,6 +12,7 @@ public sealed class ModulePage : ContentPage
     public ModulePage()
     {
         BackgroundColor = Theme.Page;
+        Shell.SetNavBarIsVisible(this, true);
         Title = "AutoDiag";
 
         var back = Theme.CompactButton("‹ Назад");

@@ -28,6 +28,7 @@ public sealed class AiPage : ContentPage
     {
         Title = "AI";
         BackgroundColor = Theme.Page;
+        Shell.SetNavBarIsVisible(this, true);
 
         _question.BackgroundColor = Color.FromArgb("#0E1316");
         _question.TextColor = Theme.Text;

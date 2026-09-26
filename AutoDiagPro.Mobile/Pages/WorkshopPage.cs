@@ -114,9 +114,41 @@ public sealed class WorkshopPage : ContentPage
         var tap = new TapGestureRecognizer();
         tap.Tapped += async (_, _) =>
         {
+            if (title == "QR детали")
+            {
+                await Shell.Current.GoToAsync("qrparts");
+                return;
+            }
+            if (title == "Сотрудники")
+            {
+                await Shell.Current.GoToAsync("admin");
+                return;
+            }
+            if (title == "Отчёты")
+            {
+                await Shell.Current.GoToAsync("reports");
+                return;
+            }
+            if (title == "Склад")
+            {
+                await Shell.Current.GoToAsync("inventory");
+                return;
+            }
+            if (title == "Фото")
+            {
+                await Shell.Current.GoToAsync("repair");
+                return;
+            }
+            if (title is "Клиенты / CRM" or "Запись" or "Счета / чеки")
+            {
+                _state.PendingModuleTitle = title;
+                await Shell.Current.GoToAsync("workshopmanager");
+                return;
+            }
+
             _state.PendingModuleTitle = title;
             _state.PendingModuleSubtitle = "Управление СТО";
-            _state.PendingModuleBody = $"{subtitle}. Раздел синхронизирован с общей архитектурой AutoDiag Pro. Функции, для которых серверный API уже доступен, работают напрямую; остальные элементы подготовлены под следующий серверный модуль.";
+            _state.PendingModuleBody = $"{subtitle}. Раздел синхронизирован с общей архитектурой AutoDiag Pro. Функции, для которых серверный API уже доступен, работают напрямую; остальные данные сохраняются в мобильном workspace.";
             await Shell.Current.GoToAsync("module");
         };
 
@@ -170,20 +202,31 @@ public sealed class WorkshopPage : ContentPage
     private static View OrderCard(ServerWorkOrderRecord order)
     {
         var amount = order.TotalAmount <= 0 ? "Сумма не указана" : $"{order.TotalAmount:N2} €";
+        var header = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
+            ColumnSpacing = 10
+        };
+        header.Add(new Label
+        {
+            Text = string.IsNullOrWhiteSpace(order.Number) ? "Заказ-наряд" : order.Number,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = Theme.Text
+        }, 0, 0);
+        header.Add(new Label
+        {
+            Text = order.Status,
+            TextColor = Theme.Accent,
+            FontSize = 11,
+            HorizontalOptions = LayoutOptions.End
+        }, 1, 0);
+
         return Theme.CardView(new VerticalStackLayout
         {
             Spacing = 6,
             Children =
             {
-                new Grid
-                {
-                    ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
-                    Children =
-                    {
-                        new Label { Text = string.IsNullOrWhiteSpace(order.Number) ? "Заказ-наряд" : order.Number, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
-                        new Label { Text = order.Status, TextColor = Theme.Accent, FontSize = 11, HorizontalOptions = LayoutOptions.End }
-                    }
-                },
+                header,
                 new Label { Text = string.IsNullOrWhiteSpace(order.Title) ? "Без названия" : order.Title, FontSize = 14, TextColor = Theme.TextSoft },
                 new Label { Text = amount + " • " + order.UpdatedAt.LocalDateTime.ToString("dd.MM HH:mm"), FontSize = 11, TextColor = Theme.Muted }
             }

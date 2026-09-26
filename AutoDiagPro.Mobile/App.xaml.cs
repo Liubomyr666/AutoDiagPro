@@ -1,24 +1,58 @@
 using AutoDiagPro.Mobile.Pages;
-using AutoDiagPro.Mobile.Services;
 
 namespace AutoDiagPro.Mobile;
 
 public partial class App : Application
 {
-    public App(IServiceProvider services)
-    {
-        AppServices.Services = services;
+    private readonly ContentPage _bootPage;
 
-        try
+    public App()
+    {
+        UserAppTheme = AppTheme.Dark;
+
+        _bootPage = new ContentPage
         {
-            InitializeComponent();
-            UserAppTheme = AppTheme.Dark;
-            MainPage = CreateLoginPage();
-        }
-        catch (Exception ex)
+            BackgroundColor = Color.FromArgb("#090C0E"),
+            Content = new Grid
+            {
+                Padding = new Thickness(28),
+                Children =
+                {
+                    new VerticalStackLayout
+                    {
+                        Spacing = 12,
+                        VerticalOptions = LayoutOptions.Center,
+                        HorizontalOptions = LayoutOptions.Center,
+                        Children =
+                        {
+                            new Label
+                            {
+                                Text = "AutoDiag Pro",
+                                FontSize = 30,
+                                FontAttributes = FontAttributes.Bold,
+                                TextColor = Colors.White,
+                                HorizontalTextAlignment = TextAlignment.Center
+                            },
+                            new Label
+                            {
+                                Text = "Запуск приложения…",
+                                FontSize = 14,
+                                TextColor = Color.FromArgb("#E7A13B"),
+                                HorizontalTextAlignment = TextAlignment.Center
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        MainPage = _bootPage;
+
+        Dispatcher.Dispatch(async () =>
         {
-            MainPage = BuildStartupErrorPage(ex);
-        }
+            await Task.Delay(150);
+            OpenLoginSafe();
+        });
     }
 
     private static Page CreateLoginPage() =>
@@ -28,11 +62,23 @@ public partial class App : Application
             BarTextColor = Colors.White
         };
 
+    private void OpenLoginSafe()
+    {
+        try
+        {
+            MainPage = CreateLoginPage();
+        }
+        catch (Exception ex)
+        {
+            MainPage = BuildStartupErrorPage(ex);
+        }
+    }
+
     private static Page BuildStartupErrorPage(Exception ex)
     {
         var retry = new Button
         {
-            Text = "Перезапустить экран входа",
+            Text = "Повторить запуск",
             BackgroundColor = Color.FromArgb("#E7A13B"),
             TextColor = Color.FromArgb("#111315"),
             CornerRadius = 12,
@@ -40,44 +86,20 @@ public partial class App : Application
             FontAttributes = FontAttributes.Bold
         };
 
-        var page = new ContentPage
+        var detail = new Label
         {
-            BackgroundColor = Color.FromArgb("#090C0E"),
-            Content = new ScrollView
-            {
-                Content = new VerticalStackLayout
-                {
-                    Padding = new Thickness(24, 70, 24, 30),
-                    Spacing = 14,
-                    Children =
-                    {
-                        new Label
-                        {
-                            Text = "AutoDiag Pro",
-                            FontSize = 30,
-                            FontAttributes = FontAttributes.Bold,
-                            TextColor = Colors.White
-                        },
-                        new Label
-                        {
-                            Text = "Ошибка запуска",
-                            FontSize = 18,
-                            FontAttributes = FontAttributes.Bold,
-                            TextColor = Color.FromArgb("#EE636B")
-                        },
-                        new Label
-                        {
-                            Text = ex.Message,
-                            FontSize = 13,
-                            TextColor = Color.FromArgb("#B8C0C5")
-                        },
-                        retry
-                    }
-                }
-            }
+            Text = ex.ToString(),
+            FontSize = 11,
+            TextColor = Color.FromArgb("#B8C0C5"),
+            LineBreakMode = LineBreakMode.WordWrap
         };
 
-        retry.Clicked += async (_, _) =>
+        var page = new ContentPage
+        {
+            BackgroundColor = Color.FromArgb("#090C0E")
+        };
+
+        retry.Clicked += (_, _) =>
         {
             try
             {
@@ -85,7 +107,41 @@ public partial class App : Application
             }
             catch (Exception retryEx)
             {
-                await page.DisplayAlert("AutoDiag Pro", retryEx.Message, "OK");
+                detail.Text = retryEx.ToString();
+            }
+        };
+
+        page.Content = new ScrollView
+        {
+            Content = new VerticalStackLayout
+            {
+                Padding = new Thickness(24, 64, 24, 30),
+                Spacing = 14,
+                Children =
+                {
+                    new Label
+                    {
+                        Text = "AutoDiag Pro",
+                        FontSize = 30,
+                        FontAttributes = FontAttributes.Bold,
+                        TextColor = Colors.White
+                    },
+                    new Label
+                    {
+                        Text = "Ошибка запуска",
+                        FontSize = 18,
+                        FontAttributes = FontAttributes.Bold,
+                        TextColor = Color.FromArgb("#EE636B")
+                    },
+                    new Label
+                    {
+                        Text = "Скопируй или сфотографируй текст ниже — теперь приложение не должно оставаться на пустом чёрном экране.",
+                        FontSize = 13,
+                        TextColor = Color.FromArgb("#D7DDE0")
+                    },
+                    detail,
+                    retry
+                }
             }
         };
 
@@ -104,6 +160,15 @@ public partial class App : Application
         }
     }
 
-    public static void OpenLogin() =>
-        Current!.MainPage = CreateLoginPage();
+    public static void OpenLogin()
+    {
+        try
+        {
+            Current!.MainPage = CreateLoginPage();
+        }
+        catch (Exception ex)
+        {
+            Current!.MainPage = BuildStartupErrorPage(ex);
+        }
+    }
 }

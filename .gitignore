@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.p12
+*.mobileprovision
+*.cer
+*.key
+*.pem
+.DS_Store

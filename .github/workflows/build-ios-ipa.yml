@@ -1,0 +1,65 @@
+name: Build AutoDiag Pro iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "AutoDiagPro.Mobile/**"
+      - ".github/workflows/build-ios-ipa.yml"
+      - "global.json"
+
+jobs:
+  build-ios:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Select Xcode 16.4
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.425"
+      - name: Verify .NET
+        run: dotnet --version
+      - name: Install MAUI iOS workload
+        run: |
+          dotnet workload install maui-ios
+          dotnet workload list
+      - name: Restore
+        working-directory: AutoDiagPro.Mobile
+        run: dotnet restore AutoDiagPro.Mobile.csproj
+      - name: Build unsigned iPhone app
+        working-directory: AutoDiagPro.Mobile
+        run: |
+          dotnet build AutoDiagPro.Mobile.csproj \
+            -f net8.0-ios \
+            -c Release \
+            -r ios-arm64 \
+            -p:EnableCodeSigning=false \
+            -p:ArchiveOnBuild=false
+      - name: Create unsigned IPA for AltStore
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find AutoDiagPro.Mobile/bin/Release/net8.0-ios/ios-arm64 -type d -name '*.app' | head -n 1)"
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app bundle found"
+            exit 1
+          fi
+          rm -rf ipa
+          mkdir -p ipa/Payload
+          cp -R "$APP_PATH" ipa/Payload/
+          cd ipa
+          /usr/bin/zip -qry ../AutoDiagPro_iOS_v1.4.0_AltStore.ipa Payload
+          cd ..
+          ls -lh AutoDiagPro_iOS_v1.4.0_AltStore.ipa
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoDiagPro-iOS-v1.4.0-AltStore
+          path: AutoDiagPro_iOS_v1.4.0_AltStore.ipa
+          if-no-files-found: error
+          retention-days: 30

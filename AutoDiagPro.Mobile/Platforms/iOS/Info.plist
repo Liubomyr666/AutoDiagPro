@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>UIDeviceFamily</key>
+  <array><integer>1</integer><integer>2</integer></array>
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>AutoDiag Pro подключается к OBD-адаптеру в локальной Wi‑Fi сети.</string>
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>AutoDiag Pro использует Bluetooth для совместимых OBD-адаптеров.</string>
+  <key>NSBluetoothPeripheralUsageDescription</key>
+  <string>AutoDiag Pro подключается к Bluetooth OBD-адаптерам для диагностики автомобиля.</string>
+  <key>UIBackgroundModes</key>
+  <array>
+    <string>bluetooth-central</string>
+  </array>
+  <key>NSCameraUsageDescription</key>
+  <string>Камера используется для фото автомобиля и QR-кодов.</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>Фото используются в истории автомобиля и ремонта.</string>
+</dict>
+</plist>

@@ -32,6 +32,7 @@ public sealed class WorkshopManagerPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        if (!await AccessPolicy.RequireStaffAsync(this)) return;
         await RenderAsync();
     }
 

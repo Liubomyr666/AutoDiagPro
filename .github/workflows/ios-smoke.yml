@@ -51,10 +51,15 @@ jobs:
           DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
           test -n "$DEVICE"
           xcrun simctl boot "$DEVICE" || true
-          sleep 20
-          xcrun simctl install "$DEVICE" "$APP_PATH"
-          xcrun simctl launch "$DEVICE" com.autodiagpro.app | tee launch.txt
-          sleep 10
+          python3 - "$DEVICE" "$APP_PATH" <<'PY'
+          import subprocess, sys
+          device, app_path = sys.argv[1], sys.argv[2]
+          subprocess.run(["xcrun","simctl","bootstatus",device,"-b"], timeout=120, check=True)
+          subprocess.run(["xcrun","simctl","install",device,app_path], timeout=60, check=True)
+          launch = subprocess.run(["xcrun","simctl","launch",device,"com.autodiagpro.app"], timeout=30, check=True, text=True, capture_output=True)
+          open("launch.txt","w").write(launch.stdout + launch.stderr)
+          PY
+          sleep 8
           xcrun simctl io "$DEVICE" screenshot screenshot.png
           xcrun simctl spawn "$DEVICE" log show --style compact --last 3m \
             --predicate 'process CONTAINS[c] "AutoDiag" OR eventMessage CONTAINS[c] "AutoDiag"' > app-log.txt || true

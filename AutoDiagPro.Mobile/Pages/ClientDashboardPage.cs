@@ -13,6 +13,15 @@ public sealed class ClientDashboardPage : ContentPage
     private readonly Label _service = Value();
     private readonly Label _orders = Value();
     private readonly Label _sync = Theme.MutedText("Обновление...");
+    private readonly Border _statusDot = new()
+    {
+        WidthRequest = 8,
+        HeightRequest = 8,
+        BackgroundColor = Theme.Muted,
+        StrokeThickness = 0,
+        StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 4 },
+        VerticalOptions = LayoutOptions.Center
+    };
     private readonly Label _heroTitle = new()
     {
         Text = "Добавьте автомобиль",
@@ -129,15 +138,7 @@ public sealed class ClientDashboardPage : ContentPage
                     Spacing = 7,
                     Children =
                     {
-                        new Border
-                        {
-                            WidthRequest = 8,
-                            HeightRequest = 8,
-                            BackgroundColor = Theme.Green,
-                            StrokeThickness = 0,
-                            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 4 },
-                            VerticalOptions = LayoutOptions.Center
-                        },
+                        _statusDot,
                         _sync
                     }
                 }
@@ -349,11 +350,13 @@ public sealed class ClientDashboardPage : ContentPage
 
             _sync.Text = $"Синхронизировано • {DateTime.Now:HH:mm}";
             _sync.TextColor = Theme.Green;
+            _statusDot.BackgroundColor = Theme.Green;
         }
         catch
         {
             _sync.Text = "Нет связи с сервером";
             _sync.TextColor = Theme.Red;
+            _statusDot.BackgroundColor = Theme.Red;
         }
     }
 

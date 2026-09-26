@@ -16,7 +16,7 @@ public sealed class ClientDashboardPage : ContentPage
     private readonly Label _heroTitle = new()
     {
         Text = "Добавьте автомобиль",
-        FontSize = 21,
+        FontSize = 20,
         FontAttributes = FontAttributes.Bold,
         TextColor = Colors.White,
         MaxLines = 2
@@ -38,8 +38,8 @@ public sealed class ClientDashboardPage : ContentPage
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(16, 14, 16, 118),
-                Spacing = 16,
+                Padding = new Thickness(16, 12, 16, 92),
+                Spacing = 13,
                 Children =
                 {
                     Header(),
@@ -110,7 +110,7 @@ public sealed class ClientDashboardPage : ContentPage
         var greeting = new Label
         {
             Text = string.IsNullOrWhiteSpace(name) ? "Здравствуйте" : $"Здравствуйте, {name}",
-            FontSize = 24,
+            FontSize = 22,
             FontAttributes = FontAttributes.Bold,
             TextColor = Theme.Text,
             MaxLines = 1,
@@ -149,7 +149,7 @@ public sealed class ClientDashboardPage : ContentPage
     {
         var primary = Theme.PrimaryButton("Открыть автомобиль");
         primary.FontSize = 14;
-        primary.HeightRequest = 44;
+        primary.HeightRequest = 42;
         primary.Clicked += async (_, _) =>
         {
             if (_state.SelectedVehicle is null)
@@ -160,10 +160,10 @@ public sealed class ClientDashboardPage : ContentPage
 
         var diag = Theme.SecondaryButton("Диагностика");
         diag.FontSize = 14;
-        diag.HeightRequest = 44;
+        diag.HeightRequest = 42;
         diag.Clicked += async (_, _) => await Shell.Current.GoToAsync("//diagnostics");
 
-        var grid = new Grid { HeightRequest = 208 };
+        var grid = new Grid { HeightRequest = 184 };
         grid.Add(new Image { Source = "hero_car.jpg", Aspect = Aspect.AspectFill });
         grid.Add(new BoxView { Color = Theme.Page, Opacity = 0.56 });
 
@@ -252,7 +252,7 @@ public sealed class ClientDashboardPage : ContentPage
                 new Label
                 {
                     Text = "Быстрые действия",
-                    FontSize = 20,
+                    FontSize = 18,
                     FontAttributes = FontAttributes.Bold,
                     TextColor = Theme.Text
                 },
@@ -274,8 +274,8 @@ public sealed class ClientDashboardPage : ContentPage
                 new Image
                 {
                     Source = icon,
-                    HeightRequest = 22,
-                    WidthRequest = 22,
+                    HeightRequest = 20,
+                    WidthRequest = 20,
                     HorizontalOptions = LayoutOptions.Start
                 },
                 new Label
@@ -294,7 +294,7 @@ public sealed class ClientDashboardPage : ContentPage
                     MaxLines = 1
                 }
             }
-        }, new Thickness(14), 16);
+        }, new Thickness(12), 14);
 
         card.GestureRecognizers.Add(tap);
         return card;

@@ -14,7 +14,7 @@ public sealed class ClientMorePage : ContentPage
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(16, 14, 16, 118),
+                Padding = new Thickness(16, 12, 16, 92),
                 Spacing = 14,
                 Children =
                 {
@@ -54,14 +54,14 @@ public sealed class ClientMorePage : ContentPage
                     Spacing = 12,
                     Children =
                     {
-                        new Image { Source = "client_avatar.png", WidthRequest = 54, HeightRequest = 54 },
+                        new Image { Source = "client_avatar.png", WidthRequest = 46, HeightRequest = 46 },
                         new VerticalStackLayout
                         {
                             Spacing = 2,
                             VerticalOptions = LayoutOptions.Center,
                             Children =
                             {
-                                new Label { Text = s?.DisplayName ?? "Клиент", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                                new Label { Text = s?.DisplayName ?? "Клиент", FontSize = 18, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text, FontAutoScalingEnabled = false },
                                 Theme.MutedText(s?.Email ?? "")
                             }
                         }
@@ -79,17 +79,17 @@ public sealed class ClientMorePage : ContentPage
             ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
             ColumnSpacing = 12
         };
-        grid.Add(new Image { Source = icon, WidthRequest = 28, HeightRequest = 28 }, 0, 0);
+        grid.Add(new Image { Source = icon, WidthRequest = 22, HeightRequest = 22 }, 0, 0);
         grid.Add(new VerticalStackLayout
         {
             Spacing = 3,
             Children =
             {
-                new Label { Text = title, FontSize = 15, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                new Label { Text = title, FontSize = 15, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text, FontAutoScalingEnabled = false },
                 Theme.MutedText(subtitle)
             }
         }, 1, 0);
-        grid.Add(new Label { Text = "›", FontSize = 26, TextColor = Theme.Accent, VerticalTextAlignment = TextAlignment.Center }, 2, 0);
+        grid.Add(new Label { Text = "›", FontSize = 26, TextColor = Theme.Accent, VerticalTextAlignment = TextAlignment.Center, FontAutoScalingEnabled = false }, 2, 0);
 
         var card = Theme.CardView(grid, new Thickness(13));
         var tap = new TapGestureRecognizer();

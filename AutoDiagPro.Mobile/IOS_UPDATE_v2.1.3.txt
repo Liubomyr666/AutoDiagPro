@@ -1,8 +1,0 @@
-AutoDiag Pro iOS v2.1.3 final
-
-- deterministic code-only startup before login UI
-- AppServices initialized from iOS AppDelegate before LoginPage
-- startup error screen instead of silent black screen
-- iOS runtime smoke test launches app in simulator and captures screenshot/logs
-- role-safe Client / Staff / Admin navigation
-- MAUI SVG resources referenced through generated PNG names on iOS

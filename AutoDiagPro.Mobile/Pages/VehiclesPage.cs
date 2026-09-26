@@ -9,7 +9,7 @@ public sealed class VehiclesPage : ContentPage
     private readonly MobileState _state = AppServices.Get<MobileState>();
     private readonly CollectionView _list = new() { SelectionMode = SelectionMode.Single };
     private readonly Label _status = Theme.MutedText("Загрузка...");
-    private readonly Label _selectedTitle = new() { Text = "Автомобиль не выбран", FontSize = 21, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text };
+    private readonly Label _selectedTitle = new() { Text = "Автомобиль не выбран", FontSize = 19, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text };
     private readonly Label _selectedVin = Theme.MutedText("VIN • —");
     private readonly Label _selectedMileage = Theme.MutedText("Пробег • —");
 
@@ -25,7 +25,7 @@ public sealed class VehiclesPage : ContentPage
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(16, 14, 16, 118),
+                Padding = new Thickness(16, 12, 16, 92),
                 Spacing = 14,
                 Children =
                 {
@@ -79,7 +79,7 @@ public sealed class VehiclesPage : ContentPage
         ai.WidthRequest = 72;
         ai.Clicked += async (_, _) => await Shell.Current.GoToAsync("ai");
 
-        var grid = new Grid { HeightRequest = 235 };
+        var grid = new Grid { HeightRequest = 205 };
         grid.Add(new Image { Source = "hero_car.jpg", Aspect = Aspect.AspectFill });
         grid.Add(new BoxView { Color = Theme.Page, Opacity = 0.66 });
         grid.Add(new VerticalStackLayout
@@ -108,13 +108,13 @@ public sealed class VehiclesPage : ContentPage
 
     private static View BuildVehicleCard()
     {
-        var title = new Label { FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text };
+        var title = new Label { FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text, FontAutoScalingEnabled = false };
         title.SetBinding(Label.TextProperty, nameof(ServerVehicleRecord.DisplayName));
 
-        var vin = new Label { FontSize = 11, TextColor = Theme.Muted };
+        var vin = new Label { FontSize = 11, TextColor = Theme.Muted, FontAutoScalingEnabled = false };
         vin.SetBinding(Label.TextProperty, nameof(ServerVehicleRecord.Vin), stringFormat: "VIN • {0}");
 
-        var mileage = new Label { FontSize = 12, TextColor = Theme.Accent, FontAttributes = FontAttributes.Bold };
+        var mileage = new Label { FontSize = 12, TextColor = Theme.Accent, FontAttributes = FontAttributes.Bold, FontAutoScalingEnabled = false };
         mileage.SetBinding(Label.TextProperty, nameof(ServerVehicleRecord.MileageKm), stringFormat: "{0:N0} км");
 
         var grid = new Grid

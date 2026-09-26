@@ -40,19 +40,19 @@ public static class Theme
         };
 
     public static Label H1(string text) =>
-        new() { Text = text, FontSize = 25, FontAttributes = FontAttributes.Bold, TextColor = Text, MaxLines = 2 };
+        new() { Text = text, FontSize = 24, FontAttributes = FontAttributes.Bold, TextColor = Text, MaxLines = 2, FontAutoScalingEnabled = false };
 
     public static Label H2(string text) =>
-        new() { Text = text, FontSize = 19, FontAttributes = FontAttributes.Bold, TextColor = Text };
+        new() { Text = text, FontSize = 18, FontAttributes = FontAttributes.Bold, TextColor = Text, FontAutoScalingEnabled = false };
 
     public static Label Eyebrow(string text) =>
-        new() { Text = text.ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold, TextColor = Muted, CharacterSpacing = 0.8 };
+        new() { Text = text.ToUpperInvariant(), FontSize = 10, FontAttributes = FontAttributes.Bold, TextColor = Muted, CharacterSpacing = 0.8, FontAutoScalingEnabled = false };
 
     public static Label MutedText(string text) =>
-        new() { Text = text, FontSize = 12, TextColor = Muted, LineBreakMode = LineBreakMode.WordWrap };
+        new() { Text = text, FontSize = 12, TextColor = Muted, LineBreakMode = LineBreakMode.WordWrap, FontAutoScalingEnabled = false };
 
     public static Label Body(string text) =>
-        new() { Text = text, FontSize = 13, TextColor = TextSoft, LineBreakMode = LineBreakMode.WordWrap };
+        new() { Text = text, FontSize = 13, TextColor = TextSoft, LineBreakMode = LineBreakMode.WordWrap, FontAutoScalingEnabled = false };
 
     public static Border Pill(string text, Color? color = null)
     {
@@ -65,7 +65,7 @@ public static class Theme
             Padding = new Thickness(9, 4),
             StrokeShape = new RoundRectangle { CornerRadius = 11 },
             HorizontalOptions = LayoutOptions.Start,
-            Content = new Label { Text = text, FontSize = 10, FontAttributes = FontAttributes.Bold, TextColor = c }
+            Content = new Label { Text = text, FontSize = 10, FontAttributes = FontAttributes.Bold, TextColor = c, FontAutoScalingEnabled = false }
         };
     }
 
@@ -76,7 +76,8 @@ public static class Theme
         TextColor = Color.FromArgb("#111315"),
         CornerRadius = 12,
         HeightRequest = 46,
-        FontAttributes = FontAttributes.Bold
+        FontAttributes = FontAttributes.Bold,
+        FontAutoScalingEnabled = false
     };
 
     public static Button SecondaryButton(string text) => new()
@@ -100,6 +101,7 @@ public static class Theme
         BorderWidth = 1,
         CornerRadius = 10,
         HeightRequest = 38,
-        FontSize = 12
+        FontSize = 12,
+        FontAutoScalingEnabled = false
     };
 }

@@ -77,8 +77,8 @@ public sealed class LoginPage : ContentPage
                     VerticalOptions = LayoutOptions.Center,
                     Children =
                     {
-                        new Label { Text = "AutoDiag PRO", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                        new Label { Text = "VEHICLE DIAGNOSTICS", FontSize = 9, TextColor = Theme.Muted, CharacterSpacing = 1.2 }
+                        new Label { Text = "AutoDiag PRO", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Colors.White, FontAutoScalingEnabled = false },
+                        new Label { Text = "VEHICLE DIAGNOSTICS", FontSize = 9, TextColor = Theme.Muted, CharacterSpacing = 1.2, FontAutoScalingEnabled = false }
                     }
                 }
             }
@@ -145,7 +145,7 @@ public sealed class LoginPage : ContentPage
                 _password,
                 rememberRow,
                 _login,
-                new Label { Text = "или", TextColor = Theme.Muted, HorizontalTextAlignment = TextAlignment.Center, FontSize = 11 },
+                new Label { Text = "или", TextColor = Theme.Muted, HorizontalTextAlignment = TextAlignment.Center, FontSize = 11, FontAutoScalingEnabled = false },
                 _google,
                 Theme.MutedText("Сессия хранится в защищённом iOS Keychain. Пароль не сохраняется в исходном коде приложения.")
             }

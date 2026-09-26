@@ -24,7 +24,7 @@ public sealed class ClientServicePage : ContentPage
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(16, 14, 16, 118),
+                Padding = new Thickness(16, 12, 16, 92),
                 Spacing = 14,
                 Children =
                 {
@@ -54,7 +54,7 @@ public sealed class ClientServicePage : ContentPage
             Children =
             {
                 Theme.Pill("MY SERVICE", Theme.Green),
-                new Label { Text = "Запись и статус ремонта", FontSize = 21, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                new Label { Text = "Запись и статус ремонта", FontSize = 21, FontAttributes = FontAttributes.Bold, TextColor = Colors.White, FontAutoScalingEnabled = false },
                 Theme.MutedText("Без служебных функций СТО")
             }
         });
@@ -99,7 +99,7 @@ public sealed class ClientServicePage : ContentPage
                     Spacing = 5,
                     Children =
                     {
-                        new Label { Text = string.IsNullOrWhiteSpace(o.Title) ? "Работы" : o.Title, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                        new Label { Text = string.IsNullOrWhiteSpace(o.Title) ? "Работы" : o.Title, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text, FontAutoScalingEnabled = false },
                         Theme.Pill(string.IsNullOrWhiteSpace(o.Status) ? "В работе" : o.Status, Theme.Accent),
                         Theme.MutedText($"{o.UpdatedAt.LocalDateTime:dd.MM.yyyy HH:mm}" + (o.TotalAmount > 0 ? $" • {o.TotalAmount:N2} €" : ""))
                     }
@@ -113,7 +113,7 @@ public sealed class ClientServicePage : ContentPage
                     Spacing = 5,
                     Children =
                     {
-                        new Label { Text = a.Work, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                        new Label { Text = a.Work, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text, FontAutoScalingEnabled = false },
                         Theme.MutedText($"{a.StartsAt.LocalDateTime:dd.MM.yyyy HH:mm} • {a.Status}")
                     }
                 }, new Thickness(13)));

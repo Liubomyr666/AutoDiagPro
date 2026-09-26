@@ -1,0 +1,14 @@
+AutoDiag Pro iOS v1.4.0
+
+Крупное мобильное обновление:
+- Новый интерфейс в стиле Windows AutoDiag Pro.
+- 5 основных вкладок: Главная, Диагностика, Авто, СТО, Ещё.
+- Новая главная с фотографией автомобиля, KPI и быстрыми действиями.
+- Новый Vehicle Workspace с VIN, пробегом, историей и быстрым переходом к диагностике/AI.
+- Новый Workshop Pro: заказ-наряды с AutoDiag Server, CRM/запись/склад/сотрудники/счета/фото/QR/отчёты.
+- Каталог всех модулей ПК: Repair Brain, Programming ECU, Tuning/Stage, Coding/Adaptations, Keys/Immobilizer, Service ECU, Battery Coding, ТО, износ, детали по VIN, история, отчёты, роли, администрирование.
+- Диагностика получила отдельный Adapter Manager hero и сохранены Bluetooth LE + Wi-Fi OBD.
+- DTC карточки + AutoDiag AI: причины, срочность, проверки, детали и поиск покупки.
+- Новый экран входа с автомобильным визуалом.
+- Перенесены оригинальные изображения из Windows-клиента: hero_car, adapter, login_car, фирменная иконка.
+- GitHub Actions собирает ios-arm64 IPA для AltStore/AltServer.

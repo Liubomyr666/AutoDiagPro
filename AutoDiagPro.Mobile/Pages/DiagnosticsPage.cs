@@ -47,8 +47,10 @@ public sealed class DiagnosticsPage : ContentPage
                 Spacing = 14,
                 Children =
                 {
+                    Theme.Eyebrow("OBD WORKSPACE"),
                     Theme.H1("Диагностика"),
-                    Theme.MutedText("iPhone → OBD → автомобиль. Только безопасное чтение данных."),
+                    Theme.MutedText("Bluetooth LE / Wi-Fi • VIN • DTC • Live Data • AutoDiag AI"),
+                    BuildDiagnosticHero(),
                     BuildConnectionCard(),
                     BuildVehicleCard(),
                     BuildActionsCard(),
@@ -59,6 +61,34 @@ public sealed class DiagnosticsPage : ContentPage
 
         ShowResult("Результаты появятся здесь.");
     }
+
+    private View BuildDiagnosticHero()
+    {
+        var grid = new Grid { HeightRequest = 165 };
+        grid.Add(new Image { Source = "adapter.jpg", Aspect = Aspect.AspectFill });
+        grid.Add(new BoxView { Color = Theme.Page, Opacity = 0.70 });
+        grid.Add(new VerticalStackLayout
+        {
+            Padding = new Thickness(16),
+            Spacing = 7,
+            VerticalOptions = LayoutOptions.End,
+            Children =
+            {
+                Theme.Pill("ADAPTER MANAGER"),
+                new Label { Text = "Подключи OBD и запускай scan", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                new Label { Text = "Автоматически сохраняем результат на AutoDiag Server.", FontSize = 11, TextColor = Theme.TextSoft }
+            }
+        });
+
+        return new Border
+        {
+            Stroke = Theme.Line,
+            StrokeThickness = 1,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 18 },
+            Content = grid
+        };
+    }
+
     private View BuildConnectionCard()
     {
         _wifiFields.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(2, GridUnitType.Star)));

@@ -8,8 +8,8 @@ public sealed class LoginPage : ContentPage
     private readonly Entry _email = new() { Placeholder = "Email", Keyboard = Keyboard.Email };
     private readonly Entry _password = new() { Placeholder = "Пароль", IsPassword = true };
     private readonly Switch _remember = new() { IsToggled = true };
-    private readonly Button _login = new() { Text = "Войти" };
-    private readonly Button _google = new() { Text = "Войти через Google" };
+    private readonly Button _login = Theme.PrimaryButton("Войти");
+    private readonly Button _google = Theme.SecondaryButton("Войти через Google");
     private readonly Label _status = Theme.MutedText("Проверяю AutoDiag Server...");
 
     public LoginPage()
@@ -19,8 +19,6 @@ public sealed class LoginPage : ContentPage
 
         StyleEntry(_email);
         StyleEntry(_password);
-        StyleButton(_login);
-        StyleSecondaryButton(_google);
         _login.Clicked += LoginClicked;
         _google.Clicked += GoogleClicked;
 
@@ -28,23 +26,24 @@ public sealed class LoginPage : ContentPage
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(24, 60, 24, 30),
-                Spacing = 18,
+                Padding = new Thickness(16, 18, 16, 34),
+                Spacing = 14,
                 Children =
                 {
-                    BuildHeader(),
-                    Theme.CardView(BuildForm())
+                    BuildHero(),
+                    Theme.CardView(BuildForm(), new Thickness(18))
                 }
             }
         };
     }
+
     protected override async void OnAppearing()
     {
         base.OnAppearing();
         try
         {
             var health = await _api.GetHealthAsync();
-            _status.Text = $"Сервер ONLINE • API v{health.Version}";
+            _status.Text = $"SERVER ONLINE • API v{health.Version}";
             _status.TextColor = Theme.Green;
 
             if (await _api.TryRestoreAsync())
@@ -60,58 +59,95 @@ public sealed class LoginPage : ContentPage
         }
     }
 
-    private View BuildHeader()
+    private View BuildHero()
     {
-        return new VerticalStackLayout
-        {
-            HorizontalOptions = LayoutOptions.Center,
-            Spacing = 10,
-            Children =
-            {
-                new Image { Source = "brandmark.svg", WidthRequest = 112, HeightRequest = 112 },
-                new Label
-                {
-                    Text = "AutoDiag PRO",
-                    FontSize = 30,
-                    FontAttributes = FontAttributes.Bold,
-                    TextColor = Theme.Text,
-                    HorizontalTextAlignment = TextAlignment.Center
-                },
-                Theme.MutedText("Диагностика автомобиля прямо с iPhone")
-            }
-        };
-    }
-    private View BuildForm()
-    {
-        var rememberRow = new HorizontalStackLayout
+        var grid = new Grid { HeightRequest = 285 };
+        grid.Add(new Image { Source = "login_car.jpg", Aspect = Aspect.AspectFill });
+        grid.Add(new BoxView { Color = Theme.Page, Opacity = 0.60 });
+
+        var logoRow = new HorizontalStackLayout
         {
             Spacing = 10,
             Children =
             {
-                _remember,
-                new Label
+                new Image { Source = "brandmark.svg", WidthRequest = 52, HeightRequest = 52 },
+                new VerticalStackLayout
                 {
-                    Text = "Запомнить вход на этом iPhone",
-                    TextColor = Theme.Text,
-                    VerticalTextAlignment = TextAlignment.Center
+                    Spacing = 0,
+                    VerticalOptions = LayoutOptions.Center,
+                    Children =
+                    {
+                        new Label { Text = "AutoDiag PRO", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
+                        new Label { Text = "VEHICLE DIAGNOSTICS", FontSize = 9, TextColor = Theme.Muted, CharacterSpacing = 1.2 }
+                    }
                 }
             }
         };
 
-        return new VerticalStackLayout
+        grid.Add(new VerticalStackLayout
         {
-            Spacing = 14,
+            Padding = new Thickness(18),
+            Spacing = 12,
+            VerticalOptions = LayoutOptions.End,
             Children =
             {
-                Theme.H1("Вход"),
+                logoRow,
+                Theme.Pill("IOS WORKSPACE"),
+                new Label
+                {
+                    Text = "Диагностика автомобиля\nпрямо с iPhone",
+                    FontSize = 28,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Colors.White
+                },
+                new Label
+                {
+                    Text = "OBD • VIN • DTC • Live Data • AI • СТО",
+                    FontSize = 12,
+                    TextColor = Color.FromArgb("#D3D9DD")
+                }
+            }
+        });
+
+        return new Border
+        {
+            Stroke = Theme.Line,
+            StrokeThickness = 1,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 20 },
+            Content = grid
+        };
+    }
+
+    private View BuildForm()
+    {
+        var rememberRow = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star) },
+            ColumnSpacing = 10
+        };
+        rememberRow.Add(_remember, 0, 0);
+        rememberRow.Add(new Label
+        {
+            Text = "Запомнить вход на этом iPhone",
+            TextColor = Theme.TextSoft,
+            VerticalTextAlignment = TextAlignment.Center
+        }, 1, 0);
+
+        return new VerticalStackLayout
+        {
+            Spacing = 13,
+            Children =
+            {
+                Theme.Eyebrow("SECURE LOGIN"),
+                Theme.H2("Вход в AutoDiag Pro"),
                 _status,
                 _email,
                 _password,
                 rememberRow,
                 _login,
-                new Label { Text = "или", TextColor = Theme.Muted, HorizontalTextAlignment = TextAlignment.Center },
+                new Label { Text = "или", TextColor = Theme.Muted, HorizontalTextAlignment = TextAlignment.Center, FontSize = 11 },
                 _google,
-                Theme.MutedText("Данные сессии хранятся в защищённом iOS Keychain.")
+                Theme.MutedText("Сессия хранится в защищённом iOS Keychain. Пароль не сохраняется в исходном коде приложения.")
             }
         };
     }
@@ -130,9 +166,7 @@ public sealed class LoginPage : ContentPage
         {
             var session = await _api.LoginAsync(_email.Text, _password.Text, _remember.IsToggled);
             if (session.MustChangePassword)
-            {
-                await DisplayAlert("AutoDiag", "Сервер требует сменить временный пароль. Это можно сделать в Windows-клиенте или через администратора.", "OK");
-            }
+                await DisplayAlert("AutoDiag", "Сервер требует сменить временный пароль.", "OK");
 
             App.OpenMain();
         }
@@ -163,8 +197,7 @@ public sealed class LoginPage : ContentPage
                 await Task.Delay(1500);
                 var status = await _api.GetExternalLoginStatusAsync(start.RequestId, _remember.IsToggled);
 
-                if (string.Equals(status.Status, "complete", StringComparison.OrdinalIgnoreCase) &&
-                    status.Session is not null)
+                if (string.Equals(status.Status, "complete", StringComparison.OrdinalIgnoreCase) && status.Session is not null)
                 {
                     App.OpenMain();
                     return;
@@ -172,9 +205,7 @@ public sealed class LoginPage : ContentPage
 
                 if (string.Equals(status.Status, "failed", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(status.Status, "expired", StringComparison.OrdinalIgnoreCase))
-                {
                     throw new InvalidOperationException(status.Error ?? "Google-вход не завершён.");
-                }
             }
 
             throw new TimeoutException("Время Google-входа истекло. Попробуйте ещё раз.");
@@ -190,31 +221,12 @@ public sealed class LoginPage : ContentPage
         }
     }
 
-    private static void StyleSecondaryButton(Button button)
-    {
-        button.BackgroundColor = Color.FromArgb("#1B242A");
-        button.TextColor = Theme.Text;
-        button.CornerRadius = 12;
-        button.HeightRequest = 50;
-        button.BorderColor = Theme.Line;
-        button.BorderWidth = 1;
-    }
-
     private static void StyleEntry(Entry entry)
     {
-        entry.BackgroundColor = Color.FromArgb("#12171A");
+        entry.BackgroundColor = Theme.Surface;
         entry.TextColor = Theme.Text;
         entry.PlaceholderColor = Theme.Muted;
         entry.HeightRequest = 50;
         entry.Margin = new Thickness(0);
-    }
-
-    private static void StyleButton(Button button)
-    {
-        button.BackgroundColor = Theme.Accent;
-        button.TextColor = Color.FromArgb("#111315");
-        button.FontAttributes = FontAttributes.Bold;
-        button.CornerRadius = 12;
-        button.HeightRequest = 50;
     }
 }

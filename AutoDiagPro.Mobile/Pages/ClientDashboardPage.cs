@@ -266,15 +266,9 @@ public sealed class ClientDashboardPage : ContentPage
         var tap = new TapGestureRecognizer();
         tap.Tapped += async (_, _) => await action();
 
-        var card = Theme.CardView(new Grid
+        var card = Theme.CardView(new VerticalStackLayout
         {
-            RowDefinitions =
-            {
-                new RowDefinition(GridLength.Auto),
-                new RowDefinition(GridLength.Auto),
-                new RowDefinition(GridLength.Auto)
-            },
-            RowSpacing = 6,
+            Spacing = 7,
             Children =
             {
                 new Image
@@ -290,14 +284,14 @@ public sealed class ClientDashboardPage : ContentPage
                     FontSize = 15,
                     FontAttributes = FontAttributes.Bold,
                     TextColor = Theme.Text,
-                    Margin = new Thickness(0, 30, 0, 0)
+                    MaxLines = 1
                 },
                 new Label
                 {
                     Text = subtitle,
                     FontSize = 12,
                     TextColor = Theme.Muted,
-                    Margin = new Thickness(0, 58, 0, 0)
+                    MaxLines = 1
                 }
             }
         }, new Thickness(14), 16);

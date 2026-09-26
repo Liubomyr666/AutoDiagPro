@@ -26,7 +26,6 @@ public static class AccessPolicy
     public static bool IsStaff =>
         IsAdmin || IsManager || IsMechanic;
 
-    // Fail closed: any missing/unknown role gets the client UI, never staff UI.
     public static bool IsClient => !IsStaff;
 
     public static string FriendlyRole => IsPlatformAdmin ? "Platform Admin" :
@@ -38,12 +37,7 @@ public static class AccessPolicy
     public static async Task<bool> RequireStaffAsync(Page page)
     {
         if (IsStaff) return true;
-
-        await page.DisplayAlert(
-            "Доступ ограничен",
-            "Этот раздел доступен только сотрудникам СТО.",
-            "OK");
-
+        await page.DisplayAlert("Доступ ограничен", "Этот раздел доступен только сотрудникам СТО.", "OK");
         await Shell.Current.GoToAsync("//dashboard");
         return false;
     }
@@ -51,12 +45,7 @@ public static class AccessPolicy
     public static async Task<bool> RequireAdminAsync(Page page)
     {
         if (IsAdmin) return true;
-
-        await page.DisplayAlert(
-            "Доступ ограничен",
-            "Этот раздел доступен только администраторам СТО.",
-            "OK");
-
+        await page.DisplayAlert("Доступ ограничен", "Этот раздел доступен только администраторам СТО.", "OK");
         await Shell.Current.GoToAsync("//dashboard");
         return false;
     }

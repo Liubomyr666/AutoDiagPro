@@ -20,13 +20,13 @@ public sealed class ClientMorePage : ContentPage
                 {
                     ProfileCard(),
                     Theme.H2("Мои функции"),
-                    Row("AI помощник", "Помощь по неисправностям и деталям", "tab_ai.svg", "ai"),
-                    Row("История диагностики", "Все ваши проверки автомобиля", "tab_history.svg", "history"),
-                    Row("Отчёты", "Сводка по автомобилю и работам", "tab_report.svg", "reports"),
-                    Row("Сервис / ТО", "Интервалы и напоминания", "tab_service.svg", "service"),
-                    Row("Детали по VIN", "Подбор совместимых деталей", "tab_parts.svg", "parts"),
-                    Row("Шины / колодки", "Износ и рекомендации", "tab_wear.svg", "wear"),
-                    Row("Настройки", "Аккаунт и параметры приложения", "tab_settings.svg", "settings"),
+                    Row("AI помощник", "Помощь по неисправностям и деталям", "tab_ai.png", "ai"),
+                    Row("История диагностики", "Все ваши проверки автомобиля", "tab_history.png", "history"),
+                    Row("Отчёты", "Сводка по автомобилю и работам", "tab_report.png", "reports"),
+                    Row("Сервис / ТО", "Интервалы и напоминания", "tab_service.png", "service"),
+                    Row("Детали по VIN", "Подбор совместимых деталей", "tab_parts.png", "parts"),
+                    Row("Шины / колодки", "Износ и рекомендации", "tab_wear.png", "wear"),
+                    Row("Настройки", "Аккаунт и параметры приложения", "tab_settings.png", "settings"),
                     Theme.CardView(new VerticalStackLayout
                     {
                         Spacing = 6,
@@ -54,7 +54,7 @@ public sealed class ClientMorePage : ContentPage
                     Spacing = 12,
                     Children =
                     {
-                        new Image { Source = "client_avatar.svg", WidthRequest = 54, HeightRequest = 54 },
+                        new Image { Source = "client_avatar.png", WidthRequest = 54, HeightRequest = 54 },
                         new VerticalStackLayout
                         {
                             Spacing = 2,

@@ -32,19 +32,19 @@ public sealed class AppShell : Shell
 
         if (AccessPolicy.IsClient)
         {
-            tabs.Items.Add(Tab("Главная", "dashboard", typeof(ClientDashboardPage), "tab_home.svg"));
-            tabs.Items.Add(Tab("Авто", "vehicles", typeof(VehiclesPage), "tab_car.svg"));
-            tabs.Items.Add(Tab("Диагностика", "diagnostics", typeof(DiagnosticsPage), "tab_scan.svg"));
-            tabs.Items.Add(Tab("Сервис", "clientservice", typeof(ClientServicePage), "tab_service.svg"));
-            tabs.Items.Add(Tab("Профиль", "more", typeof(ClientMorePage), "tab_profile.svg"));
+            tabs.Items.Add(Tab("Главная", "dashboard", typeof(ClientDashboardPage), "tab_home.png"));
+            tabs.Items.Add(Tab("Авто", "vehicles", typeof(VehiclesPage), "tab_car.png"));
+            tabs.Items.Add(Tab("Диагностика", "diagnostics", typeof(DiagnosticsPage), "tab_scan.png"));
+            tabs.Items.Add(Tab("Сервис", "clientservice", typeof(ClientServicePage), "tab_service.png"));
+            tabs.Items.Add(Tab("Профиль", "more", typeof(ClientMorePage), "tab_profile.png"));
         }
         else
         {
-            tabs.Items.Add(Tab("Главная", "dashboard", typeof(DashboardPage), "tab_home.svg"));
-            tabs.Items.Add(Tab("Диагностика", "diagnostics", typeof(DiagnosticsPage), "tab_scan.svg"));
-            tabs.Items.Add(Tab("Авто", "vehicles", typeof(VehiclesPage), "tab_car.svg"));
-            tabs.Items.Add(Tab("СТО", "workshop", typeof(WorkshopPage), "tab_workshop.svg"));
-            tabs.Items.Add(Tab("Ещё", "more", typeof(MorePage), "tab_more.svg"));
+            tabs.Items.Add(Tab("Главная", "dashboard", typeof(DashboardPage), "tab_home.png"));
+            tabs.Items.Add(Tab("Диагностика", "diagnostics", typeof(DiagnosticsPage), "tab_scan.png"));
+            tabs.Items.Add(Tab("Авто", "vehicles", typeof(VehiclesPage), "tab_car.png"));
+            tabs.Items.Add(Tab("СТО", "workshop", typeof(WorkshopPage), "tab_workshop.png"));
+            tabs.Items.Add(Tab("Ещё", "more", typeof(MorePage), "tab_more.png"));
         }
 
         Items.Add(tabs);

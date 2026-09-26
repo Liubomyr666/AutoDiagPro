@@ -70,7 +70,7 @@ public sealed class LoginPage : ContentPage
             Spacing = 10,
             Children =
             {
-                new Image { Source = "brandmark.svg", WidthRequest = 52, HeightRequest = 52 },
+                new Image { Source = "brandmark.png", WidthRequest = 52, HeightRequest = 52 },
                 new VerticalStackLayout
                 {
                     Spacing = 0,

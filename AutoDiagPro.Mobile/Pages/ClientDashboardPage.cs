@@ -94,10 +94,10 @@ public sealed class ClientDashboardPage : ContentPage
     private View QuickActions()
     {
         var grid = new Grid { ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) }, ColumnSpacing = 10, RowSpacing = 10 };
-        grid.Add(Action("Диагностика", "Проверить авто", "tab_scan.svg", async () => await Shell.Current.GoToAsync("//diagnostics")), 0, 0);
-        grid.Add(Action("AI помощник", "Разобрать проблему", "tab_ai.svg", async () => await Shell.Current.GoToAsync("ai")), 1, 0);
-        grid.Add(Action("Сервис", "Запись и статус", "tab_service.svg", async () => await Shell.Current.GoToAsync("//clientservice")), 0, 1);
-        grid.Add(Action("Мои авто", "VIN и пробег", "tab_car.svg", async () => await Shell.Current.GoToAsync("//vehicles")), 1, 1);
+        grid.Add(Action("Диагностика", "Проверить авто", "tab_scan.png", async () => await Shell.Current.GoToAsync("//diagnostics")), 0, 0);
+        grid.Add(Action("AI помощник", "Разобрать проблему", "tab_ai.png", async () => await Shell.Current.GoToAsync("ai")), 1, 0);
+        grid.Add(Action("Сервис", "Запись и статус", "tab_service.png", async () => await Shell.Current.GoToAsync("//clientservice")), 0, 1);
+        grid.Add(Action("Мои авто", "VIN и пробег", "tab_car.png", async () => await Shell.Current.GoToAsync("//vehicles")), 1, 1);
         return new VerticalStackLayout { Spacing = 9, Children = { Theme.H2("Для вас"), grid } };
     }
 

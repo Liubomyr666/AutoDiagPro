@@ -198,15 +198,24 @@ public sealed class DiagnosticsPage : ContentPage
             _connection.TextColor = Theme.Muted;
         };
 
-        return Theme.CardView(new VerticalStackLayout
+        var actions = new VerticalStackLayout
         {
             Spacing = 9,
             Children =
             {
                 new Label { Text = "БЫСТРЫЕ ДЕЙСТВИЯ", FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
-                identify, full, dtc, live, ecu, repair, clear, disconnect
+                identify, full, dtc, live, ecu
             }
-        });
+        };
+
+        if (AccessPolicy.IsStaff)
+        {
+            actions.Children.Add(repair);
+            actions.Children.Add(clear);
+        }
+
+        actions.Children.Add(disconnect);
+        return Theme.CardView(actions);
     }
     private async void ConnectClicked(object? sender, EventArgs e)
     {

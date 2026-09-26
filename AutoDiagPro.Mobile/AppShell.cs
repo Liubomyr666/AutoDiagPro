@@ -29,13 +29,25 @@ public sealed class AppShell : Shell
         Routing.RegisterRoute("inventory", typeof(InventoryPage));
 
         var tabs = new TabBar();
-        tabs.Items.Add(Tab("Главная", "dashboard", typeof(DashboardPage)));
-        tabs.Items.Add(Tab("Диагностика", "diagnostics", typeof(DiagnosticsPage)));
-        tabs.Items.Add(Tab("Авто", "vehicles", typeof(VehiclesPage)));
-        tabs.Items.Add(Tab("СТО", "workshop", typeof(WorkshopPage)));
-        tabs.Items.Add(Tab("Ещё", "more", typeof(MorePage)));
-        Items.Add(tabs);
 
+        if (AccessPolicy.IsClient)
+        {
+            tabs.Items.Add(Tab("Главная", "dashboard", typeof(ClientDashboardPage), "tab_home.svg"));
+            tabs.Items.Add(Tab("Авто", "vehicles", typeof(VehiclesPage), "tab_car.svg"));
+            tabs.Items.Add(Tab("Диагностика", "diagnostics", typeof(DiagnosticsPage), "tab_scan.svg"));
+            tabs.Items.Add(Tab("Сервис", "clientservice", typeof(ClientServicePage), "tab_service.svg"));
+            tabs.Items.Add(Tab("Профиль", "more", typeof(ClientMorePage), "tab_profile.svg"));
+        }
+        else
+        {
+            tabs.Items.Add(Tab("Главная", "dashboard", typeof(DashboardPage), "tab_home.svg"));
+            tabs.Items.Add(Tab("Диагностика", "diagnostics", typeof(DiagnosticsPage), "tab_scan.svg"));
+            tabs.Items.Add(Tab("Авто", "vehicles", typeof(VehiclesPage), "tab_car.svg"));
+            tabs.Items.Add(Tab("СТО", "workshop", typeof(WorkshopPage), "tab_workshop.svg"));
+            tabs.Items.Add(Tab("Ещё", "more", typeof(MorePage), "tab_more.svg"));
+        }
+
+        Items.Add(tabs);
         SetTabBarBackgroundColor(this, Color.FromArgb("#0D1114"));
         SetTabBarForegroundColor(this, Theme.Accent);
         SetTabBarUnselectedColor(this, Color.FromArgb("#71818B"));
@@ -43,11 +55,12 @@ public sealed class AppShell : Shell
         SetNavBarIsVisible(this, false);
     }
 
-    private static ShellContent Tab(string title, string route, Type pageType) =>
+    private static ShellContent Tab(string title, string route, Type pageType, string icon) =>
         new()
         {
             Title = title,
             Route = route,
+            Icon = icon,
             ContentTemplate = new DataTemplate(pageType)
         };
 }

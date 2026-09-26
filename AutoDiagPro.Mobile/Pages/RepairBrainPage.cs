@@ -98,6 +98,7 @@ public sealed class RepairBrainPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        if (!await AccessPolicy.RequireStaffAsync(this)) return;
         await LoadAsync();
     }
 

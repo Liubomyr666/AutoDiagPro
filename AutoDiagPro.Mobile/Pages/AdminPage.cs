@@ -59,6 +59,7 @@ public sealed class AdminPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        if (!await AccessPolicy.RequireAdminAsync(this)) return;
         await LoadAsync();
     }
 

@@ -51,7 +51,11 @@ public partial class App : Application
         Dispatcher.Dispatch(async () =>
         {
             await Task.Delay(150);
+#if SMOKE_CLIENT_UI
+            MainPage = new AppShell();
+#else
             OpenLoginSafe();
+#endif
         });
     }
 

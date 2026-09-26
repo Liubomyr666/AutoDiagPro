@@ -77,7 +77,7 @@ public partial class App : Application
             }
         };
 
-        retry.Clicked += (_, _) =>
+        retry.Clicked += async (_, _) =>
         {
             try
             {
@@ -85,7 +85,7 @@ public partial class App : Application
             }
             catch (Exception retryEx)
             {
-                page.DisplayAlert("AutoDiag Pro", retryEx.Message, "OK");
+                await page.DisplayAlert("AutoDiag Pro", retryEx.Message, "OK");
             }
         };
 

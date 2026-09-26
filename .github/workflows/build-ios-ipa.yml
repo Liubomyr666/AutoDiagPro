@@ -9,6 +9,10 @@ on:
       - ".github/workflows/build-ios-ipa.yml"
       - "global.json"
 
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-ios:
     runs-on: macos-15

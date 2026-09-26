@@ -57,6 +57,7 @@ public sealed class QrPartsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        if (!await AccessPolicy.RequireStaffAsync(this)) return;
         await LoadRecentAsync();
     }
 

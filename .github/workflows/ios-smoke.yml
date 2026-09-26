@@ -32,16 +32,17 @@ jobs:
         run: |
           dotnet build AutoDiagPro.Mobile.csproj \
             -f net8.0-ios \
-            -c Release \
+            -c Debug \
             -r iossimulator-arm64 \
             -p:EnableCodeSigning=false \
-            -p:ArchiveOnBuild=false
+            -p:ArchiveOnBuild=false \
+            -p:DefineConstants=SMOKE_CLIENT_UI
 
       - name: Boot simulator and launch app
         shell: bash
         run: |
           set -euo pipefail
-          APP_PATH="$(find AutoDiagPro.Mobile/bin/Release/net8.0-ios/iossimulator-arm64 -type d -name '*.app' | head -n 1)"
+          APP_PATH="$(find AutoDiagPro.Mobile/bin/Debug/net8.0-ios/iossimulator-arm64 -type d -name '*.app' | head -n 1)"
           test -n "$APP_PATH"
           DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
           test -n "$DEVICE"
@@ -57,7 +58,7 @@ jobs:
       - name: Upload smoke evidence
         uses: actions/upload-artifact@v4
         with:
-          name: AutoDiagPro-iOS-v2.1.3-runtime-smoke
+          name: AutoDiagPro-iOS-v2.2.0-client-ui-smoke
           path: |
             screenshot.png
             launch.txt

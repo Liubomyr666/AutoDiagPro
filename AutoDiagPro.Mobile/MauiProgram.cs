@@ -19,8 +19,6 @@ public static class MauiProgram
         builder.Services.AddSingleton<BleObdTransport>();
         builder.Services.AddSingleton<Elm327Service>();
 
-        var app = builder.Build();
-        AppServices.Services = app.Services;
-        return app;
+        return builder.Build();
     }
 }

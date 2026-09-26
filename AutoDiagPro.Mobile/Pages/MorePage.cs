@@ -20,6 +20,15 @@ public sealed class MorePage : ContentPage
                 Theme.Eyebrow("ALL MODULES"),
                 Theme.H1("Все функции"),
                 Theme.MutedText("Разделы ПК-версии AutoDiag Pro в мобильной структуре."),
+                BuildGroup("ДИАГНОСТИКА", new[]
+                {
+                    ("Подключение OBD", "Bluetooth LE / Wi-Fi Adapter Manager"),
+                    ("Быстрое сканирование", "VIN, DTC и базовые параметры"),
+                    ("Блоки управления ECU", "ECU и доступные модули"),
+                    ("Ошибки DTC", "Коды неисправностей и AI-разбор"),
+                    ("Живые данные", "Live Data / PID"),
+                    ("Пробег / износ", "Сравнение доступных данных")
+                }),
                 BuildGroup("РЕМОНТ И AI", new[]
                 {
                     ("Repair Brain / До-После", "DTC → проверка → ремонт → контроль"),
@@ -88,6 +97,11 @@ public sealed class MorePage : ContentPage
 
     private async Task OpenAsync(string title, string subtitle)
     {
+        if (title is "Подключение OBD" or "Быстрое сканирование" or "Ошибки DTC" or "Живые данные")
+        {
+            await Shell.Current.GoToAsync("//diagnostics");
+            return;
+        }
         if (title == "AI Помощник")
         {
             await Shell.Current.GoToAsync("ai");

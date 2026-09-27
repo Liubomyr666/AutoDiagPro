@@ -168,29 +168,36 @@ public sealed class VehiclesPage : ContentPage
             {
                 Theme.H2("Состояние автомобиля"),
                 grid,
-                Theme.CardView(new Grid
-                {
-                    ColumnDefinitions =
-                    {
-                        new ColumnDefinition(GridLength.Star),
-                        new ColumnDefinition(GridLength.Auto)
-                    },
-                    Children =
-                    {
-                        new VerticalStackLayout
-                        {
-                            Spacing = 3,
-                            Children =
-                            {
-                                Theme.Eyebrow("СЛЕДУЮЩЕЕ ТО"),
-                                Theme.MutedText("План обслуживания для выбранного автомобиля")
-                            }
-                        },
-                        _nextService
-                    }
-                }, new Thickness(14), 16)
+                BuildServiceStatusCard()
             }
         };
+    }
+
+    private View BuildServiceStatusCard()
+    {
+        var grid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 10
+        };
+
+        grid.Add(new VerticalStackLayout
+        {
+            Spacing = 3,
+            Children =
+            {
+                Theme.Eyebrow("СЛЕДУЮЩЕЕ ТО"),
+                Theme.MutedText("План обслуживания для выбранного автомобиля")
+            }
+        }, 0, 0);
+
+        _nextService.VerticalTextAlignment = TextAlignment.Center;
+        grid.Add(_nextService, 1, 0);
+        return Theme.CardView(grid, new Thickness(14), 16);
     }
 
     private View BuildQuickActions()
@@ -288,38 +295,41 @@ public sealed class VehiclesPage : ContentPage
         foreach (var vehicle in vehicles)
         {
             var active = _state.SelectedVehicle?.Id == vehicle.Id;
-            var card = Theme.CardView(new Grid
+            var row = new Grid
             {
                 ColumnDefinitions =
                 {
                     new ColumnDefinition(GridLength.Star),
                     new ColumnDefinition(GridLength.Auto)
                 },
-                ColumnSpacing = 10,
+                ColumnSpacing = 10
+            };
+
+            row.Add(new VerticalStackLayout
+            {
+                Spacing = 4,
                 Children =
                 {
-                    new VerticalStackLayout
+                    new Label
                     {
-                        Spacing = 4,
-                        Children =
-                        {
-                            new Label
-                            {
-                                Text = vehicle.DisplayName,
-                                FontSize = 15,
-                                FontAttributes = FontAttributes.Bold,
-                                TextColor = Theme.Text,
-                                FontAutoScalingEnabled = false,
-                                MaxLines = 1,
-                                LineBreakMode = LineBreakMode.TailTruncation
-                            },
-                            Theme.MutedText("VIN • " + (string.IsNullOrWhiteSpace(vehicle.Vin) ? "—" : vehicle.Vin)),
-                            Theme.MutedText(vehicle.MileageKm is null ? "Пробег • —" : $"Пробег • {vehicle.MileageKm:N0} км")
-                        }
+                        Text = vehicle.DisplayName,
+                        FontSize = 15,
+                        FontAttributes = FontAttributes.Bold,
+                        TextColor = Theme.Text,
+                        FontAutoScalingEnabled = false,
+                        MaxLines = 1,
+                        LineBreakMode = LineBreakMode.TailTruncation
                     },
-                    Theme.Pill(active ? "АКТИВНЫЙ" : "ВЫБРАТЬ", active ? Theme.Green : Theme.Muted)
+                    Theme.MutedText("VIN • " + (string.IsNullOrWhiteSpace(vehicle.Vin) ? "—" : vehicle.Vin)),
+                    Theme.MutedText(vehicle.MileageKm is null ? "Пробег • —" : $"Пробег • {vehicle.MileageKm:N0} км")
                 }
-            }, new Thickness(14), 16);
+            }, 0, 0);
+
+            var badge = Theme.Pill(active ? "АКТИВНЫЙ" : "ВЫБРАТЬ", active ? Theme.Green : Theme.Muted);
+            badge.VerticalOptions = LayoutOptions.Center;
+            row.Add(badge, 1, 0);
+
+            var card = Theme.CardView(row, new Thickness(14), 16);
 
             var tap = new TapGestureRecognizer();
             tap.Tapped += async (_, _) =>

@@ -7,8 +7,21 @@ public sealed class WorkshopPage : ContentPage
 {
     private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
+    private readonly MobileWorkspaceStore _store = AppServices.Get<MobileWorkspaceStore>();
     private readonly VerticalStackLayout _orders = new() { Spacing = 10 };
+    private readonly VerticalStackLayout _searchResults = new() { Spacing = 9 };
     private readonly Label _status = Theme.MutedText("Загрузка СТО...");
+    private readonly Label _searchStatus = Theme.MutedText("Поиск по телефону / ID клиента, VIN или госномеру.");
+    private readonly Entry _search = new()
+    {
+        Placeholder = "Телефон, ID клиента, VIN или госномер",
+        BackgroundColor = Theme.Surface,
+        TextColor = Theme.Text,
+        PlaceholderColor = Theme.Muted,
+        HeightRequest = 48,
+        ReturnType = ReturnType.Search,
+        ClearButtonVisibility = ClearButtonVisibility.WhileEditing
+    };
 
     public WorkshopPage()
     {
@@ -25,6 +38,7 @@ public sealed class WorkshopPage : ContentPage
                 {
                     BuildHeader(),
                     BuildHero(),
+                    BuildSearch(),
                     BuildModules(),
                     Theme.H2("Заказ-наряды"),
                     _orders
@@ -80,6 +94,189 @@ public sealed class WorkshopPage : ContentPage
             Content = grid
         };
     }
+
+    private View BuildSearch()
+    {
+        var button = Theme.PrimaryButton("Найти");
+        button.WidthRequest = 86;
+        button.Clicked += async (_, _) => await SearchAsync();
+
+        _search.Completed += async (_, _) => await SearchAsync();
+        _search.TextChanged += (_, _) =>
+        {
+            if (!string.IsNullOrWhiteSpace(_search.Text)) return;
+            _searchResults.Clear();
+            _searchStatus.Text = "Поиск по телефону / ID клиента, VIN или госномеру.";
+            _searchStatus.TextColor = Theme.Muted;
+        };
+
+        var row = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 8
+        };
+        row.Add(_search, 0, 0);
+        row.Add(button, 1, 0);
+
+        return Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 9,
+            Children =
+            {
+                Theme.Eyebrow("БЫСТРЫЙ ПОИСК"),
+                Theme.H2("Найти клиента или автомобиль"),
+                Theme.MutedText("Ищет сразу по телефону, внутреннему ID клиента, VIN и госномеру автомобиля."),
+                row,
+                _searchStatus,
+                _searchResults
+            }
+        }, new Thickness(14), 18);
+    }
+
+    private async Task SearchAsync()
+    {
+        var query = _search.Text?.Trim() ?? "";
+        _searchResults.Clear();
+
+        if (query.Length < 2)
+        {
+            _searchStatus.Text = "Введите минимум 2 символа.";
+            _searchStatus.TextColor = Theme.Accent;
+            return;
+        }
+
+        _searchStatus.Text = "Поиск...";
+        _searchStatus.TextColor = Theme.Muted;
+
+        try
+        {
+            var vehiclesTask = _api.GetVehiclesAsync();
+            var dbTask = _store.LoadAsync();
+            await Task.WhenAll(vehiclesTask, dbTask);
+
+            var vehicles = await vehiclesTask;
+            var db = await dbTask;
+            _state.Vehicles = vehicles;
+
+            var compactQuery = Compact(query);
+            var digitsQuery = Digits(query);
+
+            var clients = db.Clients
+                .Where(x =>
+                    ContainsText(x.Name, query) ||
+                    ContainsText(x.Email, query) ||
+                    (!string.IsNullOrWhiteSpace(digitsQuery) && Digits(x.Phone).Contains(digitsQuery, StringComparison.Ordinal)) ||
+                    Compact(x.Id.ToString()).Contains(compactQuery, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.Name)
+                .Take(12)
+                .ToList();
+
+            var matchedVehicles = vehicles
+                .Where(x =>
+                    ContainsText(x.Vin, query) ||
+                    ContainsText(x.Plate, query) ||
+                    ContainsText(x.DisplayName, query) ||
+                    Compact(x.Id.ToString()).Contains(compactQuery, StringComparison.OrdinalIgnoreCase) ||
+                    (x.ClientId is not null &&
+                     Compact(x.ClientId.Value.ToString()).Contains(compactQuery, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(x => x.DisplayName)
+                .Take(20)
+                .ToList();
+
+            foreach (var client in clients)
+                _searchResults.Add(ClientSearchCard(client));
+
+            foreach (var vehicle in matchedVehicles)
+                _searchResults.Add(VehicleSearchCard(vehicle));
+
+            var total = clients.Count + matchedVehicles.Count;
+            _searchStatus.Text = total == 0
+                ? "Ничего не найдено."
+                : $"Найдено: клиентов {clients.Count}, автомобилей {matchedVehicles.Count}.";
+            _searchStatus.TextColor = total == 0 ? Theme.Accent : Theme.Green;
+        }
+        catch (Exception ex)
+        {
+            _searchStatus.Text = "Ошибка поиска: " + ex.Message;
+            _searchStatus.TextColor = Theme.Red;
+        }
+    }
+
+    private View ClientSearchCard(MobileClientRecord client)
+    {
+        var contacts = string.Join(" • ", new[] { client.Phone, client.Email }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        return Theme.SoftCard(new VerticalStackLayout
+        {
+            Spacing = 5,
+            Children =
+            {
+                Theme.Pill("КЛИЕНТ", Theme.Green),
+                new Label
+                {
+                    Text = client.Name,
+                    FontSize = 15,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Text,
+                    FontAutoScalingEnabled = false
+                },
+                Theme.MutedText(string.IsNullOrWhiteSpace(contacts) ? "Контакты не указаны" : contacts),
+                Theme.MutedText("ID • " + client.Id.ToString("N")[..8].ToUpperInvariant()),
+                string.IsNullOrWhiteSpace(client.Notes) ? Theme.MutedText("Без заметок") : Theme.Body(client.Notes)
+            }
+        }, new Thickness(12));
+    }
+
+    private View VehicleSearchCard(ServerVehicleRecord vehicle)
+    {
+        var open = Theme.CompactButton("Открыть автомобиль");
+        open.Clicked += async (_, _) =>
+        {
+            _state.SelectedVehicle = vehicle;
+            _status.Text = vehicle.DisplayName + " • выбран";
+            _status.TextColor = Theme.Green;
+            await Shell.Current.GoToAsync("//vehicles");
+        };
+
+        var vin = string.IsNullOrWhiteSpace(vehicle.Vin) ? "VIN • —" : "VIN • " + vehicle.Vin;
+        var plate = string.IsNullOrWhiteSpace(vehicle.Plate) ? "Госномер • —" : "Госномер • " + vehicle.Plate;
+
+        return Theme.SoftCard(new VerticalStackLayout
+        {
+            Spacing = 5,
+            Children =
+            {
+                Theme.Pill("АВТО", Theme.Accent),
+                new Label
+                {
+                    Text = vehicle.DisplayName,
+                    FontSize = 15,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Text,
+                    FontAutoScalingEnabled = false
+                },
+                Theme.MutedText(vin),
+                Theme.MutedText(plate),
+                vehicle.ClientId is null
+                    ? Theme.MutedText("Клиент • не привязан")
+                    : Theme.MutedText("Client ID • " + vehicle.ClientId.Value.ToString("N")[..8].ToUpperInvariant()),
+                open
+            }
+        }, new Thickness(12));
+    }
+
+    private static bool ContainsText(string? value, string query) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        value.Contains(query, StringComparison.OrdinalIgnoreCase);
+
+    private static string Digits(string? value) =>
+        new((value ?? "").Where(char.IsDigit).ToArray());
+
+    private static string Compact(string? value) =>
+        new((value ?? "").Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
     private View BuildModules()
     {

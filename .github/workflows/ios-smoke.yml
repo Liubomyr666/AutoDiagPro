@@ -56,10 +56,15 @@ jobs:
           device, app_path = sys.argv[1], sys.argv[2]
           subprocess.run(["xcrun","simctl","bootstatus",device,"-b"], timeout=120, check=True)
           subprocess.run(["xcrun","simctl","install",device,app_path], timeout=60, check=True)
-          launch = subprocess.run(["xcrun","simctl","launch",device,"com.autodiagpro.app"], timeout=30, check=True, text=True, capture_output=True)
-          open("launch.txt","w").write(launch.stdout + launch.stderr)
+          with open("launch.txt","w") as out:
+              proc = subprocess.Popen(["xcrun","simctl","launch","--terminate-running-process",device,"com.autodiagpro.app"], stdout=out, stderr=subprocess.STDOUT, text=True)
+              try:
+                  proc.wait(timeout=12)
+              except subprocess.TimeoutExpired:
+                  out.write("\\nsimctl launch command did not return; continuing with runtime screenshot.\\n")
+                  proc.terminate()
           PY
-          sleep 8
+          sleep 10
           xcrun simctl io "$DEVICE" screenshot screenshot.png
           xcrun simctl spawn "$DEVICE" log show --style compact --last 3m \
             --predicate 'process CONTAINS[c] "AutoDiag" OR eventMessage CONTAINS[c] "AutoDiag"' > app-log.txt || true

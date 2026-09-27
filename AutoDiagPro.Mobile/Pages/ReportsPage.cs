@@ -47,7 +47,7 @@ public sealed class ReportsPage : ContentPage
                 {
                     Theme.Eyebrow("REPORT CENTER"),
                     Theme.H1("Отчёт по автомобилю"),
-                    Theme.MutedText("История scan, DTC, заказ-наряды, Repair Brain и сервисный план в одном отчёте."),
+                    Theme.MutedText(AccessPolicy.IsClient ? "Диагностика, DTC, работы на СТО и сервисный план выбранного автомобиля." : "История scan, DTC, заказ-наряды, Repair Brain и сервисный план в одном отчёте."),
                     refresh, share, _status,
                     Theme.CardView(_report)
                 }
@@ -117,18 +117,22 @@ public sealed class ReportsPage : ContentPage
             foreach (var o in orders)
                 lines.Add($"{o.Number} • {o.Status} • {o.Title} • {o.TotalAmount:N2} €");
 
-            lines.Add("");
-            lines.Add("REPAIR BRAIN");
-            if (repair.Count == 0) lines.Add("Нет локальных кейсов.");
-            foreach (var x in repair)
+            if (AccessPolicy.IsStaff)
             {
-                lines.Add($"{x.UpdatedAt.LocalDateTime:dd.MM.yyyy} • {x.Status}");
-                if (!string.IsNullOrWhiteSpace(x.DtcCodes)) lines.Add("DTC: " + x.DtcCodes);
-                if (!string.IsNullOrWhiteSpace(x.ConfirmedCause)) lines.Add("Причина: " + x.ConfirmedCause);
-                if (!string.IsNullOrWhiteSpace(x.RepairDone)) lines.Add("Ремонт: " + x.RepairDone);
                 lines.Add("");
+                lines.Add("REPAIR BRAIN");
+                if (repair.Count == 0) lines.Add("Нет локальных кейсов.");
+                foreach (var x in repair)
+                {
+                    lines.Add($"{x.UpdatedAt.LocalDateTime:dd.MM.yyyy} • {x.Status}");
+                    if (!string.IsNullOrWhiteSpace(x.DtcCodes)) lines.Add("DTC: " + x.DtcCodes);
+                    if (!string.IsNullOrWhiteSpace(x.ConfirmedCause)) lines.Add("Причина: " + x.ConfirmedCause);
+                    if (!string.IsNullOrWhiteSpace(x.RepairDone)) lines.Add("Ремонт: " + x.RepairDone);
+                    lines.Add("");
+                }
             }
 
+            lines.Add("");
             lines.Add("СЕРВИС / ТО");
             if (plan is null)
             {

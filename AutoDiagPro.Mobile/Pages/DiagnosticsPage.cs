@@ -49,7 +49,7 @@ public sealed class DiagnosticsPage : ContentPage
                 {
                     Theme.Eyebrow("OBD СКАНЕР"),
                     Theme.H1("Диагностика"),
-                    Theme.MutedText("Bluetooth LE и Wi-Fi • VIN • DTC • Live Data • AI-разбор"),
+                    Theme.MutedText("Подключите адаптер, выберите автомобиль и запустите проверку."),
                     BuildDiagnosticHero(),
                     BuildConnectionCard(),
                     BuildVehicleCard(),
@@ -184,19 +184,19 @@ public sealed class DiagnosticsPage : ContentPage
         });
     private View BuildActionsCard()
     {
-        var identify = DarkButton("Прочитать VIN");
+        var identify = DarkButton("Определить автомобиль по VIN");
         identify.Clicked += IdentifyClicked;
 
         var full = AccentButton("Полная диагностика");
         full.Clicked += FullScanClicked;
 
-        var dtc = DarkButton("Ошибки DTC");
+        var dtc = DarkButton("Проверить ошибки");
         dtc.Clicked += DtcClicked;
 
-        var live = DarkButton("Live Data");
+        var live = DarkButton("Параметры в реальном времени");
         live.Clicked += async (_, _) => await Shell.Current.GoToAsync("live");
 
-        var ecu = DarkButton("ECU и готовность");
+        var ecu = DarkButton("Данные блоков управления");
         ecu.Clicked += async (_, _) => await Shell.Current.GoToAsync("ecu");
 
         var repair = DarkButton("Repair Brain");
@@ -219,7 +219,7 @@ public sealed class DiagnosticsPage : ContentPage
             Spacing = 9,
             Children =
             {
-                new Label { Text = "БЫСТРЫЕ ДЕЙСТВИЯ", FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                Theme.H2("Диагностика автомобиля"),
                 identify, full, dtc, live, ecu
             }
         };

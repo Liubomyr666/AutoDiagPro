@@ -42,28 +42,43 @@ jobs:
             -p:ArchiveOnBuild=false \
             -p:DefineConstants=SMOKE_CLIENT_UI
 
-      - name: Boot simulator and launch app
+      - name: Boot fresh simulator and launch app
         shell: bash
         run: |
           set -euo pipefail
           APP_PATH="$(find AutoDiagPro.Mobile/bin/Debug/net8.0-ios/iossimulator-arm64 -type d -name '*.app' | head -n 1)"
           test -n "$APP_PATH"
-          DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
+
+          DEVICE="$(python3 - <<'PY'
+          import json, subprocess
+          types=json.loads(subprocess.check_output(["xcrun","simctl","list","devicetypes","-j"]))["devicetypes"]
+          runtimes=json.loads(subprocess.check_output(["xcrun","simctl","list","runtimes","-j"]))["runtimes"]
+          dtype=next(x["identifier"] for x in types if x["name"]=="iPhone 16 Pro")
+          runtime=[x["identifier"] for x in runtimes if x.get("isAvailable") and "iOS" in x.get("name","")][-1]
+          print(subprocess.check_output(["xcrun","simctl","create","AutoDiagProSmoke",dtype,runtime], text=True).strip())
+          PY
+          )"
+
           test -n "$DEVICE"
-          xcrun simctl boot "$DEVICE" || true
+          trap 'xcrun simctl shutdown "$DEVICE" >/dev/null 2>&1 || true; xcrun simctl delete "$DEVICE" >/dev/null 2>&1 || true' EXIT
+          xcrun simctl boot "$DEVICE"
+
           python3 - "$DEVICE" "$APP_PATH" <<'PY'
           import subprocess, sys
           device, app_path = sys.argv[1], sys.argv[2]
-          subprocess.run(["xcrun","simctl","bootstatus",device,"-b"], timeout=120, check=True)
-          subprocess.run(["xcrun","simctl","install",device,app_path], timeout=60, check=True)
+          subprocess.run(["xcrun","simctl","bootstatus",device,"-b"], timeout=180, check=True)
+          subprocess.run(["xcrun","simctl","install",device,app_path], timeout=180, check=True)
           with open("launch.txt","w") as out:
-              proc = subprocess.Popen(["xcrun","simctl","launch","--terminate-running-process",device,"com.autodiagpro.app"], stdout=out, stderr=subprocess.STDOUT, text=True)
+              proc = subprocess.Popen(
+                  ["xcrun","simctl","launch","--terminate-running-process",device,"com.autodiagpro.app"],
+                  stdout=out, stderr=subprocess.STDOUT, text=True)
               try:
-                  proc.wait(timeout=12)
+                  proc.wait(timeout=15)
               except subprocess.TimeoutExpired:
                   out.write("\\nsimctl launch command did not return; continuing with runtime screenshot.\\n")
                   proc.terminate()
           PY
+
           sleep 10
           xcrun simctl io "$DEVICE" screenshot screenshot.png
           xcrun simctl spawn "$DEVICE" log show --style compact --last 3m \

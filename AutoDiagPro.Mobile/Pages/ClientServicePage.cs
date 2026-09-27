@@ -43,9 +43,9 @@ public sealed class ClientServicePage : ContentPage
                 Spacing = 14,
                 Children =
                 {
-                    Theme.Eyebrow("МОЙ СЕРВИС"),
+                    Theme.Eyebrow("ОБСЛУЖИВАНИЕ"),
                     Theme.H1("Сервис и обслуживание"),
-                    Theme.MutedText("Статусы работ загружаются с AutoDiag Server. Личные записи и напоминания сохраняются на этом iPhone."),
+                    Theme.MutedText("Запись на обслуживание, план ТО и статус текущих работ."),
                     Hero(),
                     BuildBookingCard(),
                     BuildServicePlanButton(),
@@ -172,7 +172,7 @@ public sealed class ClientServicePage : ContentPage
         await _store.SaveAsync(db);
 
         _reason.Text = "";
-        _status.Text = "Запись сохранена на iPhone.";
+        _status.Text = "Запись сохранена.";
         _status.TextColor = Theme.Green;
         await LoadAsync();
     }

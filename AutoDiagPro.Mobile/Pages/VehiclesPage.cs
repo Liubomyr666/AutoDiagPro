@@ -72,7 +72,7 @@ public sealed class VehiclesPage : ContentPage
             Spacing = 3,
             Children =
             {
-                Theme.Eyebrow("МОЙ ГАРАЖ"),
+                Theme.Eyebrow("МОИ АВТОМОБИЛИ"),
                 Theme.H1("Автомобили"),
                 _status
             }
@@ -158,7 +158,7 @@ public sealed class VehiclesPage : ContentPage
 
         grid.Add(Kpi("Состояние", _condition), 0, 0);
         grid.Add(Kpi("Ошибки DTC", _dtc), 1, 0);
-        grid.Add(Kpi("Последний scan", _lastScan), 0, 1);
+        grid.Add(Kpi("Последняя проверка", _lastScan), 0, 1);
         grid.Add(Kpi("Активные работы", _activeWorks), 1, 1);
 
         return new VerticalStackLayout
@@ -369,7 +369,7 @@ public sealed class VehiclesPage : ContentPage
 
         if (last is null)
         {
-            _condition.Text = "Нет scan";
+            _condition.Text = "Нет проверки";
             _condition.TextColor = Theme.Accent;
             _dtc.Text = "—";
             _dtc.TextColor = Theme.Muted;

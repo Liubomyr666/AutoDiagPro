@@ -49,6 +49,10 @@ jobs:
           APP_PATH="$(find AutoDiagPro.Mobile/bin/Debug/net8.0-ios/iossimulator-arm64 -type d -name '*.app' | head -n 1)"
           test -n "$APP_PATH"
 
+          # Fresh iOS runtimes validate bundle resources. Ad-hoc sign the simulator bundle
+          # so SplashBoard/AppIcon resources are accepted during the runtime smoke test.
+          /usr/bin/codesign --force --deep --sign - "$APP_PATH"
+
           DEVICE="$(python3 - <<'PY'
           import json, subprocess
           types=json.loads(subprocess.check_output(["xcrun","simctl","list","devicetypes","-j"]))["devicetypes"]

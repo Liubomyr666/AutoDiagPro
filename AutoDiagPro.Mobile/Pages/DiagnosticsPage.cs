@@ -43,13 +43,13 @@ public sealed class DiagnosticsPage : ContentPage
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(18, 24, 18, 40),
+                Padding = new Thickness(16, 14, 16, 118),
                 Spacing = 14,
                 Children =
                 {
-                    Theme.Eyebrow("OBD WORKSPACE"),
+                    Theme.Eyebrow("OBD СКАНЕР"),
                     Theme.H1("Диагностика"),
-                    Theme.MutedText("Bluetooth LE / Wi-Fi • VIN • DTC • Live Data • AutoDiag AI"),
+                    Theme.MutedText("Bluetooth LE и Wi-Fi • VIN • DTC • Live Data • AI-разбор"),
                     BuildDiagnosticHero(),
                     BuildConnectionCard(),
                     BuildVehicleCard(),
@@ -60,6 +60,22 @@ public sealed class DiagnosticsPage : ContentPage
         };
 
         ShowResult("Результаты появятся здесь.");
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+
+        var selected = _state.SelectedVehicle;
+        _vehicle.Text = selected is null
+            ? "VIN • автомобиль не выбран"
+            : "VIN • " + (string.IsNullOrWhiteSpace(selected.Vin) ? "—" : selected.Vin);
+
+        if (_obd.IsConnected)
+        {
+            _connection.Text = $"Подключено • {_obd.TransportName} • {_obd.Endpoint}";
+            _connection.TextColor = Theme.Green;
+        }
     }
 
     private View BuildDiagnosticHero()
@@ -74,9 +90,9 @@ public sealed class DiagnosticsPage : ContentPage
             VerticalOptions = LayoutOptions.End,
             Children =
             {
-                Theme.Pill("ADAPTER MANAGER"),
-                new Label { Text = "Подключи OBD и запускай scan", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                new Label { Text = "Автоматически сохраняем результат на AutoDiag Server.", FontSize = 11, TextColor = Theme.TextSoft }
+                Theme.Pill("OBD СКАНЕР"),
+                new Label { Text = "Подключите OBD и запустите диагностику", FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Colors.White, FontAutoScalingEnabled = false },
+                new Label { Text = "VIN, ошибки и результат scan сохраняются в истории AutoDiag.", FontSize = 11, TextColor = Theme.TextSoft, FontAutoScalingEnabled = false }
             }
         });
 
@@ -168,7 +184,7 @@ public sealed class DiagnosticsPage : ContentPage
         });
     private View BuildActionsCard()
     {
-        var identify = DarkButton("Определить VIN");
+        var identify = DarkButton("Прочитать VIN");
         identify.Clicked += IdentifyClicked;
 
         var full = AccentButton("Полная диагностика");
@@ -177,10 +193,10 @@ public sealed class DiagnosticsPage : ContentPage
         var dtc = DarkButton("Ошибки DTC");
         dtc.Clicked += DtcClicked;
 
-        var live = DarkButton("Live Data монитор");
+        var live = DarkButton("Live Data");
         live.Clicked += async (_, _) => await Shell.Current.GoToAsync("live");
 
-        var ecu = DarkButton("ECU / Calibration / Readiness");
+        var ecu = DarkButton("ECU и готовность");
         ecu.Clicked += async (_, _) => await Shell.Current.GoToAsync("ecu");
 
         var repair = DarkButton("Repair Brain");
@@ -229,7 +245,11 @@ public sealed class DiagnosticsPage : ContentPage
             {
                 if (!int.TryParse(_port.Text, out var port))
                     throw new InvalidOperationException("Некорректный Wi-Fi порт.");
-                await _obd.ConnectWifiAsync(_host.Text ?? "", port);
+
+                var host = (_host.Text ?? "").Trim();
+                await _obd.ConnectWifiAsync(host, port);
+                Preferences.Default.Set("obd_host", host);
+                Preferences.Default.Set("obd_port", port);
             }
             else
             {
@@ -566,7 +586,7 @@ public sealed class DiagnosticsPage : ContentPage
             "какие OEM и нормальные аналоги искать, примерный диапазон цены и где можно купить. " +
             "Не выдумывай каталожный номер: если данных недостаточно, прямо напиши какие данные нужны.";
 
-        await Shell.Current.GoToAsync("//ai");
+        await Shell.Current.GoToAsync("ai");
     }
 
     private static Button AccentButton(string text) =>

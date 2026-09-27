@@ -54,13 +54,13 @@ jobs:
           mkdir -p ipa/Payload
           cp -R "$APP_PATH" ipa/Payload/
           cd ipa
-          /usr/bin/zip -qry ../AutoDiagPro_iOS_v2.1.3_AltStore.ipa Payload
+          /usr/bin/zip -qry ../AutoDiagPro_iOS_v2.3.0_AltStore.ipa Payload
           cd ..
-          ls -lh AutoDiagPro_iOS_v2.1.3_AltStore.ipa
+          ls -lh AutoDiagPro_iOS_v2.3.0_AltStore.ipa
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: AutoDiagPro-iOS-v2.1.3-AltStore
-          path: AutoDiagPro_iOS_v2.1.3_AltStore.ipa
+          name: AutoDiagPro-iOS-v2.3.0-AltStore
+          path: AutoDiagPro_iOS_v2.3.0_AltStore.ipa
           if-no-files-found: error
           retention-days: 30

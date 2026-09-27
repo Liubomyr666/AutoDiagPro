@@ -10,32 +10,32 @@ public sealed class ClientMorePage : ContentPage
     {
         Title = "Профиль";
         BackgroundColor = Theme.Page;
+
+        var logout = Theme.SecondaryButton("Выйти из аккаунта");
+        logout.TextColor = Theme.Red;
+        logout.Clicked += async (_, _) => await LogoutAsync();
+
         Content = new ScrollView
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(16, 12, 16, 92),
-                Spacing = 14,
+                Padding = new Thickness(16, 14, 16, 118),
+                Spacing = 12,
                 Children =
                 {
                     ProfileCard(),
-                    Theme.H2("Мои функции"),
-                    Row("AI помощник", "Помощь по неисправностям и деталям", "tab_ai.png", "ai"),
-                    Row("История диагностики", "Все ваши проверки автомобиля", "tab_history.png", "history"),
+                    Theme.H2("Для автомобиля"),
+                    Row("AI помощник", "Разбор неисправностей и вопросов", "tab_ai.png", "ai"),
+                    Row("История диагностики", "Все сохранённые проверки", "tab_history.png", "history"),
                     Row("Отчёты", "Сводка по автомобилю и работам", "tab_report.png", "reports"),
-                    Row("Сервис / ТО", "Интервалы и напоминания", "tab_service.png", "service"),
-                    Row("Детали по VIN", "Подбор совместимых деталей", "tab_parts.png", "parts"),
-                    Row("Шины / колодки", "Износ и рекомендации", "tab_wear.png", "wear"),
-                    Row("Настройки", "Аккаунт и параметры приложения", "tab_settings.png", "settings"),
-                    Theme.CardView(new VerticalStackLayout
-                    {
-                        Spacing = 6,
-                        Children =
-                        {
-                            Theme.Eyebrow("БЕЗОПАСНОСТЬ"),
-                            Theme.Body("Администрирование, сотрудники, склад СТО, счета СТО, QR-приём, программирование ECU, кодирование, ключи и служебные функции скрыты и недоступны клиентской роли.")
-                        }
-                    })
+                    Row("План ТО", "Интервалы и напоминания", "tab_service.png", "service"),
+                    Row("Детали по VIN", "Поиск оригинала и аналогов", "tab_parts.png", "parts"),
+                    Row("Пробег / OBD", "Доступные данные автомобиля", "tab_car.png", "mileage"),
+                    Row("Шины / колодки", "Замеры износа и история", "tab_wear.png", "wear"),
+                    Theme.H2("Приложение"),
+                    Row("Настройки", "Регион деталей и параметры", "tab_settings.png", "settings"),
+                    logout,
+                    Theme.MutedText("AutoDiag Pro iOS • 2.3.0")
                 }
             }
         };
@@ -43,10 +43,11 @@ public sealed class ClientMorePage : ContentPage
 
     private View ProfileCard()
     {
-        var s = _api.Session;
+        var session = _api.Session;
+
         return Theme.CardView(new VerticalStackLayout
         {
-            Spacing = 7,
+            Spacing = 10,
             Children =
             {
                 new HorizontalStackLayout
@@ -54,44 +55,96 @@ public sealed class ClientMorePage : ContentPage
                     Spacing = 12,
                     Children =
                     {
-                        new Image { Source = "client_avatar.png", WidthRequest = 46, HeightRequest = 46 },
+                        new Image
+                        {
+                            Source = "client_avatar.png",
+                            WidthRequest = 48,
+                            HeightRequest = 48
+                        },
                         new VerticalStackLayout
                         {
                             Spacing = 2,
                             VerticalOptions = LayoutOptions.Center,
                             Children =
                             {
-                                new Label { Text = s?.DisplayName ?? "Клиент", FontSize = 18, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text, FontAutoScalingEnabled = false },
-                                Theme.MutedText(s?.Email ?? "")
+                                new Label
+                                {
+                                    Text = session?.DisplayName ?? "Клиент",
+                                    FontSize = 18,
+                                    FontAttributes = FontAttributes.Bold,
+                                    TextColor = Theme.Text,
+                                    FontAutoScalingEnabled = false,
+                                    MaxLines = 1,
+                                    LineBreakMode = LineBreakMode.TailTruncation
+                                },
+                                Theme.MutedText(session?.Email ?? "")
                             }
                         }
                     }
                 },
-                Theme.Pill("CLIENT ACCOUNT", Theme.Green)
+                Theme.Pill("КЛИЕНТ", Theme.Green),
+                Theme.MutedText("В этом аккаунте доступны только функции владельца автомобиля. Служебные разделы СТО и администрирование скрыты.")
             }
-        }, new Thickness(16));
+        }, new Thickness(16), 18);
+    }
+
+    private async Task LogoutAsync()
+    {
+        var yes = await DisplayAlert("Выход", "Выйти из аккаунта AutoDiag Pro?", "Выйти", "Отмена");
+        if (!yes) return;
+
+        await _api.LogoutAsync();
+        App.OpenLogin();
     }
 
     private static View Row(string title, string subtitle, string icon, string route)
     {
         var grid = new Grid
         {
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            },
             ColumnSpacing = 12
         };
-        grid.Add(new Image { Source = icon, WidthRequest = 22, HeightRequest = 22 }, 0, 0);
+
+        grid.Add(new Image
+        {
+            Source = icon,
+            WidthRequest = 22,
+            HeightRequest = 22,
+            VerticalOptions = LayoutOptions.Center
+        }, 0, 0);
+
         grid.Add(new VerticalStackLayout
         {
-            Spacing = 3,
+            Spacing = 2,
             Children =
             {
-                new Label { Text = title, FontSize = 15, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text, FontAutoScalingEnabled = false },
+                new Label
+                {
+                    Text = title,
+                    FontSize = 14,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Text,
+                    FontAutoScalingEnabled = false
+                },
                 Theme.MutedText(subtitle)
             }
         }, 1, 0);
-        grid.Add(new Label { Text = "›", FontSize = 26, TextColor = Theme.Accent, VerticalTextAlignment = TextAlignment.Center, FontAutoScalingEnabled = false }, 2, 0);
 
-        var card = Theme.CardView(grid, new Thickness(13));
+        grid.Add(new Label
+        {
+            Text = "›",
+            FontSize = 24,
+            TextColor = Theme.Accent,
+            VerticalTextAlignment = TextAlignment.Center,
+            FontAutoScalingEnabled = false
+        }, 2, 0);
+
+        var card = Theme.CardView(grid, new Thickness(13), 15);
         var tap = new TapGestureRecognizer();
         tap.Tapped += async (_, _) => await Shell.Current.GoToAsync(route);
         card.GestureRecognizers.Add(tap);

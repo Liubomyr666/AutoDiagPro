@@ -7,32 +7,38 @@ public sealed class VehiclesPage : ContentPage
 {
     private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
-    private readonly CollectionView _list = new() { SelectionMode = SelectionMode.Single };
+    private readonly MobileWorkspaceStore _store = AppServices.Get<MobileWorkspaceStore>();
+
+    private readonly VerticalStackLayout _vehicleCards = new() { Spacing = 10 };
     private readonly Label _status = Theme.MutedText("Загрузка...");
-    private readonly Label _selectedTitle = new() { Text = "Автомобиль не выбран", FontSize = 19, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text };
+    private readonly Label _selectedTitle = Value("Автомобиль не выбран", 20);
     private readonly Label _selectedVin = Theme.MutedText("VIN • —");
     private readonly Label _selectedMileage = Theme.MutedText("Пробег • —");
+    private readonly Label _condition = Value("Нет данных", 15);
+    private readonly Label _dtc = Value("—", 15);
+    private readonly Label _lastScan = Value("—", 13);
+    private readonly Label _nextService = Value("Не задано", 13);
+    private readonly Label _activeWorks = Value("0", 15);
 
     public VehiclesPage()
     {
         Title = "Авто";
         BackgroundColor = Theme.Page;
 
-        _list.ItemTemplate = new DataTemplate(BuildVehicleCard);
-        _list.SelectionChanged += VehicleSelected;
-
         Content = new ScrollView
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(16, 12, 16, 92),
+                Padding = new Thickness(16, 14, 16, 118),
                 Spacing = 14,
                 Children =
                 {
                     BuildHeader(),
                     BuildVehicleHero(),
+                    BuildStatusGrid(),
+                    BuildQuickActions(),
                     Theme.H2("Мои автомобили"),
-                    _list
+                    _vehicleCards
                 }
             }
         };
@@ -46,54 +52,80 @@ public sealed class VehiclesPage : ContentPage
 
     private View BuildHeader()
     {
+        var add = Theme.CompactButton("+ Добавить");
+        add.Clicked += async (_, _) => await Shell.Current.GoToAsync("addvehicle");
+
         var refresh = Theme.CompactButton("Обновить");
         refresh.Clicked += async (_, _) => await LoadAsync();
 
-        var add = Theme.CompactButton("+ Авто");
-        add.Clicked += async (_, _) => await Shell.Current.GoToAsync("addvehicle");
-
-        var actions = new HorizontalStackLayout { Spacing = 7, Children = { add, refresh } };
-
-        var grid = new Grid
+        var top = new Grid
         {
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) }
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            }
         };
-        grid.Add(new VerticalStackLayout
+
+        top.Add(new VerticalStackLayout
         {
-            Spacing = 4,
-            Children = { Theme.Eyebrow("VEHICLE WORKSPACE"), Theme.H1("Автомобиль"), _status }
+            Spacing = 3,
+            Children =
+            {
+                Theme.Eyebrow("МОЙ ГАРАЖ"),
+                Theme.H1("Автомобили"),
+                _status
+            }
         }, 0, 0);
-        grid.Add(actions, 1, 0);
-        return grid;
+
+        top.Add(new HorizontalStackLayout
+        {
+            Spacing = 7,
+            Children = { add, refresh }
+        }, 1, 0);
+
+        return top;
     }
 
     private View BuildVehicleHero()
     {
-        var diag = Theme.PrimaryButton("Диагностика");
-        diag.Clicked += async (_, _) => await Shell.Current.GoToAsync("//diagnostics");
+        var scanner = Theme.PrimaryButton("Открыть сканер");
+        scanner.FontSize = 13;
+        scanner.HeightRequest = 42;
+        scanner.Clicked += async (_, _) => await Shell.Current.GoToAsync("//diagnostics");
 
         var history = Theme.SecondaryButton("История");
+        history.FontSize = 13;
+        history.HeightRequest = 42;
         history.Clicked += async (_, _) => await Shell.Current.GoToAsync("history");
 
-        var ai = Theme.SecondaryButton("AI");
-        ai.WidthRequest = 72;
-        ai.Clicked += async (_, _) => await Shell.Current.GoToAsync("ai");
+        var buttons = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            ColumnSpacing = 8
+        };
+        buttons.Add(scanner, 0, 0);
+        buttons.Add(history, 1, 0);
 
-        var grid = new Grid { HeightRequest = 205 };
+        var grid = new Grid { HeightRequest = 220 };
         grid.Add(new Image { Source = "hero_car.jpg", Aspect = Aspect.AspectFill });
-        grid.Add(new BoxView { Color = Theme.Page, Opacity = 0.66 });
+        grid.Add(new BoxView { Color = Theme.Page, Opacity = 0.64 });
         grid.Add(new VerticalStackLayout
         {
             Padding = new Thickness(16),
-            Spacing = 7,
+            Spacing = 6,
             VerticalOptions = LayoutOptions.End,
             Children =
             {
-                Theme.Pill("CURRENT VEHICLE"),
+                Theme.Pill("АКТИВНЫЙ АВТОМОБИЛЬ"),
                 _selectedTitle,
                 _selectedVin,
                 _selectedMileage,
-                new HorizontalStackLayout { Spacing = 8, Children = { diag, history, ai } }
+                buttons
             }
         });
 
@@ -106,63 +138,280 @@ public sealed class VehiclesPage : ContentPage
         };
     }
 
-    private static View BuildVehicleCard()
+    private View BuildStatusGrid()
     {
-        var title = new Label { FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text, FontAutoScalingEnabled = false };
-        title.SetBinding(Label.TextProperty, nameof(ServerVehicleRecord.DisplayName));
-
-        var vin = new Label { FontSize = 11, TextColor = Theme.Muted, FontAutoScalingEnabled = false };
-        vin.SetBinding(Label.TextProperty, nameof(ServerVehicleRecord.Vin), stringFormat: "VIN • {0}");
-
-        var mileage = new Label { FontSize = 12, TextColor = Theme.Accent, FontAttributes = FontAttributes.Bold, FontAutoScalingEnabled = false };
-        mileage.SetBinding(Label.TextProperty, nameof(ServerVehicleRecord.MileageKm), stringFormat: "{0:N0} км");
-
         var grid = new Grid
         {
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) }
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            RowDefinitions =
+            {
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 10,
+            RowSpacing = 10
         };
-        grid.Add(new VerticalStackLayout { Spacing = 5, Children = { title, vin } }, 0, 0);
-        grid.Add(mileage, 1, 0);
 
-        return Theme.CardView(grid, new Thickness(14));
+        grid.Add(Kpi("Состояние", _condition), 0, 0);
+        grid.Add(Kpi("Ошибки DTC", _dtc), 1, 0);
+        grid.Add(Kpi("Последний scan", _lastScan), 0, 1);
+        grid.Add(Kpi("Активные работы", _activeWorks), 1, 1);
+
+        return new VerticalStackLayout
+        {
+            Spacing = 10,
+            Children =
+            {
+                Theme.H2("Состояние автомобиля"),
+                grid,
+                Theme.CardView(new Grid
+                {
+                    ColumnDefinitions =
+                    {
+                        new ColumnDefinition(GridLength.Star),
+                        new ColumnDefinition(GridLength.Auto)
+                    },
+                    Children =
+                    {
+                        new VerticalStackLayout
+                        {
+                            Spacing = 3,
+                            Children =
+                            {
+                                Theme.Eyebrow("СЛЕДУЮЩЕЕ ТО"),
+                                Theme.MutedText("План обслуживания для выбранного автомобиля")
+                            }
+                        },
+                        _nextService
+                    }
+                }, new Thickness(14), 16)
+            }
+        };
+    }
+
+    private View BuildQuickActions()
+    {
+        var grid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            ColumnSpacing = 9,
+            RowSpacing = 9
+        };
+
+        grid.Add(ActionButton("AI помощник", "ai"), 0, 0);
+        grid.Add(ActionButton("Детали по VIN", "parts"), 1, 0);
+        grid.Add(ActionButton("Пробег / OBD", "mileage"), 0, 1);
+        grid.Add(ActionButton("Шины / колодки", "wear"), 1, 1);
+
+        return new VerticalStackLayout
+        {
+            Spacing = 10,
+            Children =
+            {
+                Theme.H2("По автомобилю"),
+                grid
+            }
+        };
+    }
+
+    private Button ActionButton(string text, string route)
+    {
+        var button = Theme.SecondaryButton(text);
+        button.FontSize = 12;
+        button.HeightRequest = 46;
+        button.Clicked += async (_, _) =>
+        {
+            if (_state.SelectedVehicle is null)
+            {
+                await DisplayAlert("AutoDiag Pro", "Сначала выберите автомобиль.", "OK");
+                return;
+            }
+            await Shell.Current.GoToAsync(route);
+        };
+        return button;
     }
 
     private async Task LoadAsync()
     {
+        _status.Text = "Синхронизация...";
+        _status.TextColor = Theme.Muted;
+
         try
         {
-            var vehicles = await _api.GetVehiclesAsync();
-            _state.Vehicles = vehicles;
+            var vehiclesTask = _api.GetVehiclesAsync();
+            var scansTask = _api.GetScansAsync();
+            var ordersTask = _api.GetWorkOrdersAsync();
 
+            await Task.WhenAll(vehiclesTask, scansTask, ordersTask);
+
+            var vehicles = await vehiclesTask;
+            var scans = await scansTask;
+            var orders = await ordersTask;
+
+            _state.Vehicles = vehicles;
             if (_state.SelectedVehicle is null || vehicles.All(x => x.Id != _state.SelectedVehicle.Id))
                 _state.SelectedVehicle = vehicles.FirstOrDefault();
 
-            _list.ItemsSource = vehicles;
-            _list.SelectedItem = _state.SelectedVehicle;
-            _status.Text = vehicles.Count == 0 ? "К аккаунту пока не привязан автомобиль." : $"AutoDiag Server • {vehicles.Count} авто";
+            RenderVehicleCards(vehicles);
+            await RefreshSelectedAsync(scans, orders);
+
+            _status.Text = vehicles.Count == 0
+                ? "Добавьте первый автомобиль"
+                : $"{vehicles.Count} авто • синхронизировано";
             _status.TextColor = vehicles.Count == 0 ? Theme.Accent : Theme.Green;
-            RefreshSelected();
         }
         catch (Exception ex)
         {
-            _status.Text = ex.Message;
+            _status.Text = "Не удалось обновить: " + ex.Message;
             _status.TextColor = Theme.Red;
         }
     }
 
-    private async void VehicleSelected(object? sender, SelectionChangedEventArgs e)
+    private void RenderVehicleCards(IReadOnlyList<ServerVehicleRecord> vehicles)
     {
-        if (e.CurrentSelection.FirstOrDefault() is not ServerVehicleRecord vehicle) return;
-        _state.SelectedVehicle = vehicle;
-        RefreshSelected();
-        await DisplayAlert("AutoDiag Pro", $"Активный автомобиль: {vehicle.DisplayName}", "OK");
+        _vehicleCards.Clear();
+
+        if (vehicles.Count == 0)
+        {
+            _vehicleCards.Add(Theme.CardView(Theme.MutedText("Автомобилей пока нет. Нажмите «+ Добавить».")));
+            return;
+        }
+
+        foreach (var vehicle in vehicles)
+        {
+            var active = _state.SelectedVehicle?.Id == vehicle.Id;
+            var card = Theme.CardView(new Grid
+            {
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition(GridLength.Star),
+                    new ColumnDefinition(GridLength.Auto)
+                },
+                ColumnSpacing = 10,
+                Children =
+                {
+                    new VerticalStackLayout
+                    {
+                        Spacing = 4,
+                        Children =
+                        {
+                            new Label
+                            {
+                                Text = vehicle.DisplayName,
+                                FontSize = 15,
+                                FontAttributes = FontAttributes.Bold,
+                                TextColor = Theme.Text,
+                                FontAutoScalingEnabled = false,
+                                MaxLines = 1,
+                                LineBreakMode = LineBreakMode.TailTruncation
+                            },
+                            Theme.MutedText("VIN • " + (string.IsNullOrWhiteSpace(vehicle.Vin) ? "—" : vehicle.Vin)),
+                            Theme.MutedText(vehicle.MileageKm is null ? "Пробег • —" : $"Пробег • {vehicle.MileageKm:N0} км")
+                        }
+                    },
+                    Theme.Pill(active ? "АКТИВНЫЙ" : "ВЫБРАТЬ", active ? Theme.Green : Theme.Muted)
+                }
+            }, new Thickness(14), 16);
+
+            var tap = new TapGestureRecognizer();
+            tap.Tapped += async (_, _) =>
+            {
+                _state.SelectedVehicle = vehicle;
+                await LoadAsync();
+            };
+            card.GestureRecognizers.Add(tap);
+            _vehicleCards.Add(card);
+        }
     }
 
-    private void RefreshSelected()
+    private async Task RefreshSelectedAsync(IReadOnlyList<ServerScanRecord> scans, IReadOnlyList<ServerWorkOrderRecord> orders)
     {
         var v = _state.SelectedVehicle;
         _selectedTitle.Text = v?.DisplayName ?? "Автомобиль не выбран";
         _selectedVin.Text = "VIN • " + (string.IsNullOrWhiteSpace(v?.Vin) ? "—" : v!.Vin);
         _selectedMileage.Text = v?.MileageKm is null ? "Пробег • —" : $"Пробег • {v.MileageKm:N0} км";
+
+        if (v is null)
+        {
+            _condition.Text = "Нет данных";
+            _condition.TextColor = Theme.Muted;
+            _dtc.Text = "—";
+            _lastScan.Text = "—";
+            _nextService.Text = "Не задано";
+            _activeWorks.Text = "0";
+            return;
+        }
+
+        var last = scans
+            .Where(x => x.VehicleId == v.Id ||
+                        (!string.IsNullOrWhiteSpace(v.Vin) &&
+                         string.Equals(x.Vin, v.Vin, StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(x => x.ScannedAt)
+            .FirstOrDefault();
+
+        if (last is null)
+        {
+            _condition.Text = "Нет scan";
+            _condition.TextColor = Theme.Accent;
+            _dtc.Text = "—";
+            _dtc.TextColor = Theme.Muted;
+            _lastScan.Text = "—";
+        }
+        else
+        {
+            _dtc.Text = last.DtcCount.ToString();
+            _dtc.TextColor = last.DtcCount == 0 ? Theme.Green : Theme.Accent;
+            _condition.Text = last.DtcCount == 0 ? "Без ошибок" : "Нужна проверка";
+            _condition.TextColor = last.DtcCount == 0 ? Theme.Green : Theme.Accent;
+            _lastScan.Text = last.ScannedAt.LocalDateTime.ToString("dd.MM.yy HH:mm");
+        }
+
+        _activeWorks.Text = orders.Count(x =>
+            x.VehicleId == v.Id &&
+            !IsClosed(x.Status)).ToString();
+
+        var db = await _store.LoadAsync();
+        var plan = db.ServicePlans.FirstOrDefault(x => x.VehicleId == v.Id);
+        _nextService.Text = plan?.NextServiceMileageKm is long km
+            ? $"{km:N0} км"
+            : plan?.NextServiceDate is DateTimeOffset date
+                ? date.LocalDateTime.ToString("dd.MM.yyyy")
+                : "Не задано";
     }
+
+    private static bool IsClosed(string? status) =>
+        string.Equals(status, "Выдано", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status, "Завершено", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status, "Закрыт", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase);
+
+    private static View Kpi(string title, Label value) =>
+        Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 5,
+            Children =
+            {
+                Theme.Eyebrow(title),
+                value
+            }
+        }, new Thickness(14), 16);
+
+    private static Label Value(string text, double size) => new()
+    {
+        Text = text,
+        FontSize = size,
+        FontAttributes = FontAttributes.Bold,
+        TextColor = Theme.Text,
+        FontAutoScalingEnabled = false,
+        MaxLines = 1,
+        LineBreakMode = LineBreakMode.TailTruncation
+    };
 }

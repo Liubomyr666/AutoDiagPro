@@ -24,18 +24,18 @@ public sealed class ClientMorePage : ContentPage
                 Children =
                 {
                     ProfileCard(),
-                    Theme.H2("Для автомобиля"),
+                    Theme.H2("Мой автомобиль"),
                     Row("AI помощник", "Разбор неисправностей и вопросов", "tab_ai.png", "ai"),
                     Row("История диагностики", "Все сохранённые проверки", "tab_history.png", "history"),
-                    Row("Отчёты", "Сводка по автомобилю и работам", "tab_report.png", "reports"),
+                    Row("Отчёты", "Сводка по автомобилю и сервису", "tab_report.png", "reports"),
                     Row("План ТО", "Интервалы и напоминания", "tab_service.png", "service"),
                     Row("Детали по VIN", "Поиск оригинала и аналогов", "tab_parts.png", "parts"),
-                    Row("Пробег / OBD", "Доступные данные автомобиля", "tab_car.png", "mileage"),
+                    Row("Пробег", "Доступные данные автомобиля", "tab_car.png", "mileage"),
                     Row("Шины / колодки", "Замеры износа и история", "tab_wear.png", "wear"),
                     Theme.H2("Приложение"),
                     Row("Настройки", "Регион деталей и параметры", "tab_settings.png", "settings"),
                     logout,
-                    Theme.MutedText("AutoDiag Pro iOS • 2.3.0")
+                    Theme.MutedText("AutoDiag Pro iOS • 2.3.1")
                 }
             }
         };

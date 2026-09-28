@@ -38,7 +38,8 @@ public sealed class MorePage : ContentPage
                         Item("Блоки управления ECU", "ECU / calibration identification", "ecu"),
                         Item("Ошибки DTC", "Коды неисправностей и AI-разбор", "//diagnostics"),
                         Item("Живые данные", "Live Data / PID", "live"),
-                        Item("Форсунки / дизель", "Fuel pressure • trims • MAF • diesel live", "diesel"),
+                        Item("Форсунки", "Fuel pressure • trims • MAF • injector live", "injectors"),
+                        Item("Дизель / топливная система", "Fuel pressure • trims • MAF • diesel live", "diesel"),
                         Item("Пробег", "Доступные mileage-данные", "mileage")
                     }),
                     BuildGroup("РЕМОНТ И СЕРВИС", new[]

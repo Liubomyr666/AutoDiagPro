@@ -1,5 +1,6 @@
 using AutoDiagPro.Mobile.Models;
 using AutoDiagPro.Mobile.Services;
+using Microsoft.Maui.Media;
 
 namespace AutoDiagPro.Mobile.Pages;
 
@@ -22,6 +23,11 @@ public sealed class WorkshopPage : ContentPage
         ReturnType = ReturnType.Search,
         ClearButtonVisibility = ClearButtonVisibility.WhileEditing
     };
+    private readonly Entry _intakeMileage = Field("Пробег, км", Keyboard.Numeric);
+    private readonly Entry _intakeFuel = Field("Топливо, %", Keyboard.Numeric);
+    private readonly Editor _intakeComplaint = EditorField("Жалоба клиента / причина обращения");
+    private readonly Editor _intakeDamage = EditorField("Повреждения при приёмке");
+    private readonly Label _intakeStatus = Theme.MutedText("Выберите автомобиль для приёмки.");
 
     public WorkshopPage()
     {
@@ -39,6 +45,7 @@ public sealed class WorkshopPage : ContentPage
                     BuildHeader(),
                     BuildHero(),
                     BuildSearch(),
+                    BuildIntakeCard(),
                     BuildModules(),
                     Theme.H2("Заказ-наряды"),
                     _orders

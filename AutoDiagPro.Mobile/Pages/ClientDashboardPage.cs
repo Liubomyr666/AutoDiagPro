@@ -6,8 +6,6 @@ public sealed class ClientDashboardPage : ContentPage
 {
     private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
-    private readonly MobileWorkspaceStore _store = AppServices.Get<MobileWorkspaceStore>();
-
     private readonly Label _vehicle = Value();
     private readonly Label _dtc = Value();
     private readonly Label _service = Value();
@@ -331,16 +329,53 @@ public sealed class ClientDashboardPage : ContentPage
             _dtc.Text = last is null ? "—" : last.DtcCount.ToString();
             _dtc.TextColor = last?.DtcCount > 0 ? Theme.Accent : Theme.Green;
 
-            var db = await _store.LoadAsync();
-            var plan = selected is null
-                ? null
-                : db.ServicePlans.FirstOrDefault(x => x.VehicleId == selected.Id);
+            if (selected is null)
+            {
+                _service.Text = "Не задано";
+            }
+            else
+            {
+                var maintenance = await _api.GetMaintenanceAsync(selected.Id);
+                var currentKm = selected.MileageKm;
+                var today = DateOnly.FromDateTime(DateTime.Today);
 
-            _service.Text = plan?.NextServiceMileageKm is long km
-                ? $"{km:N0} км"
-                : plan?.NextServiceDate is DateTimeOffset d
-                    ? d.LocalDateTime.ToString("dd.MM.yyyy")
-                    : "Не задано";
+                var next = maintenance
+                    .OrderBy(x =>
+                    {
+                        if (x.DueMileage is long dueKm && currentKm is long nowKm)
+                            return dueKm - nowKm;
+                        return long.MaxValue;
+                    })
+                    .ThenBy(x => x.DueDate ?? DateOnly.MaxValue)
+                    .FirstOrDefault();
+
+                if (next is null)
+                {
+                    _service.Text = "Не задано";
+                }
+                else if (next.DueMileage is long dueKm && currentKm is long nowKm)
+                {
+                    var left = dueKm - nowKm;
+                    _service.Text = left <= 0
+                        ? $"Просрочено {Math.Abs(left):N0} км"
+                        : $"Через {left:N0} км";
+                    _service.TextColor = left <= 0 ? Theme.Red : left <= 1000 ? Theme.Accent : Theme.Green;
+                }
+                else if (next.DueDate is DateOnly dueDate)
+                {
+                    var days = dueDate.DayNumber - today.DayNumber;
+                    _service.Text = days < 0
+                        ? $"Просрочено {Math.Abs(days)} дн."
+                        : days == 0
+                            ? "Сегодня"
+                            : $"Через {days} дн.";
+                    _service.TextColor = days < 0 ? Theme.Red : days <= 14 ? Theme.Accent : Theme.Green;
+                }
+                else
+                {
+                    _service.Text = next.Name;
+                }
+            }
 
             _orders.Text = selected is null
                 ? "0"

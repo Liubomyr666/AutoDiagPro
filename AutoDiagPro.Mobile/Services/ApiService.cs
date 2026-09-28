@@ -186,6 +186,15 @@ public sealed class ApiService
     public Task<ServerDashboardRecord> GetDashboardAsync(CancellationToken ct = default) =>
         GetAuthorizedAsync<ServerDashboardRecord>("api/dashboard", ct);
 
+    public async Task<Guid> CreateWorkOrderAsync(Guid vehicleId, string title, decimal? totalAmount = null, CancellationToken ct = default)
+    {
+        var created = await PostAuthorizedAsync<CreatedIdResponse>("api/work-orders", new
+        {
+            vehicleId, title, totalAmount
+        }, ct);
+        return created.Id;
+    }
+
     public Task UpdateWorkOrderAsync(Guid id, string? status = null, string? title = null, decimal? totalAmount = null, string? estimateStatus = null, CancellationToken ct = default) =>
         SendAuthorizedNoContentAsync(new HttpMethod("PATCH"), $"api/work-orders/{id}", new
         {
@@ -198,6 +207,15 @@ public sealed class ApiService
             decision = approved ? "Approved" : "Rejected",
             note
         }, ct);
+
+    public async Task<byte[]> GetPhotoBytesAsync(Guid photoId, CancellationToken ct = default)
+    {
+        await EnsureSessionAsync(ct);
+        using var response = await SendWithRefreshAsync(() => Authorized(HttpMethod.Get, $"api/photos/{photoId}/content"), ct);
+        if (!response.IsSuccessStatusCode)
+            _ = await ReadAsync<JsonElement>(response, "Фото", ct);
+        return await response.Content.ReadAsByteArrayAsync(ct);
+    }
 
     public Task<JsonElement> GetVehicleContextAsync(Guid vehicleId, CancellationToken ct = default) =>
         GetAuthorizedAsync<JsonElement>($"api/vehicles/{vehicleId}/context", ct);

@@ -529,7 +529,7 @@ public sealed class WorkshopPage : ContentPage
         }
     }
 
-    private static View OrderCard(ServerWorkOrderRecord order)
+    private View OrderCard(ServerWorkOrderRecord order)
     {
         var amount = order.TotalAmount <= 0 ? "Сумма не указана" : $"{order.TotalAmount:N2} €";
         var header = new Grid
@@ -543,23 +543,130 @@ public sealed class WorkshopPage : ContentPage
             FontAttributes = FontAttributes.Bold,
             TextColor = Theme.Text
         }, 0, 0);
-        header.Add(new Label
+        header.Add(Theme.Pill(order.Status, Theme.Accent), 1, 0);
+
+        var next = Theme.CompactButton("Следующий статус");
+        next.Clicked += async (_, _) =>
         {
-            Text = order.Status,
-            TextColor = Theme.Accent,
-            FontSize = 11,
-            HorizontalOptions = LayoutOptions.End
-        }, 1, 0);
+            var nextStatus = NextStatus(order.Status);
+            try
+            {
+                await _api.UpdateWorkOrderAsync(order.Id, status: nextStatus);
+                await LoadAsync();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("СТО", ex.Message, "OK");
+            }
+        };
+
+        var estimate = Theme.CompactButton("Смета клиенту");
+        estimate.Clicked += async (_, _) =>
+        {
+            var value = await DisplayPromptAsync(
+                "Смета",
+                "Введите итоговую сумму для согласования клиентом:",
+                "Отправить",
+                "Отмена",
+                initialValue: order.TotalAmount > 0 ? order.TotalAmount.ToString("0.00") : "",
+                keyboard: Keyboard.Numeric);
+
+            if (string.IsNullOrWhiteSpace(value)) return;
+            if (!decimal.TryParse(value.Replace(',', '.'), System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.InvariantCulture, out var total))
+            {
+                await DisplayAlert("Смета", "Некорректная сумма.", "OK");
+                return;
+            }
+
+            try
+            {
+                await _api.UpdateWorkOrderAsync(order.Id, totalAmount: total, estimateStatus: "WaitingClient");
+                await LoadAsync();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Смета", ex.Message, "OK");
+            }
+        };
+
+        var actions = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            ColumnSpacing = 8
+        };
+        actions.Add(next, 0, 0);
+        actions.Add(estimate, 1, 0);
 
         return Theme.CardView(new VerticalStackLayout
         {
-            Spacing = 6,
+            Spacing = 7,
             Children =
             {
                 header,
-                new Label { Text = string.IsNullOrWhiteSpace(order.Title) ? "Без названия" : order.Title, FontSize = 14, TextColor = Theme.TextSoft },
-                new Label { Text = amount + " • " + order.UpdatedAt.LocalDateTime.ToString("dd.MM HH:mm"), FontSize = 11, TextColor = Theme.Muted }
+                new Label
+                {
+                    Text = string.IsNullOrWhiteSpace(order.Title) ? "Без названия" : order.Title,
+                    FontSize = 14,
+                    TextColor = Theme.TextSoft
+                },
+                Theme.MutedText(amount + " • " + order.UpdatedAt.LocalDateTime.ToString("dd.MM HH:mm")),
+                Theme.Pill("СМЕТА • " + FriendlyEstimate(order.EstimateStatus),
+                    string.Equals(order.EstimateStatus, "Approved", StringComparison.OrdinalIgnoreCase) ? Theme.Green :
+                    string.Equals(order.EstimateStatus, "Rejected", StringComparison.OrdinalIgnoreCase) ? Theme.Red : Theme.Accent),
+                actions
             }
         }, new Thickness(14));
     }
+
+    private static string NextStatus(string? current)
+    {
+        var value = (current ?? "").Trim().ToLowerInvariant();
+        return value switch
+        {
+            "open" or "accepted" or "принято" => "Diagnostics",
+            "diagnostics" or "диагностика" => "WaitingParts",
+            "waitingparts" or "ожидание деталей" => "Repairing",
+            "repairing" or "в ремонте" => "QualityCheck",
+            "qualitycheck" or "проверка" => "Ready",
+            "ready" or "готово" => "Completed",
+            _ => "Diagnostics"
+        };
+    }
+
+    private static string FriendlyEstimate(string? status)
+    {
+        var value = (status ?? "").Trim();
+        if (value.Equals("WaitingClient", StringComparison.OrdinalIgnoreCase)) return "ЖДЁТ КЛИЕНТА";
+        if (value.Equals("Approved", StringComparison.OrdinalIgnoreCase)) return "СОГЛАСОВАНА";
+        if (value.Equals("Rejected", StringComparison.OrdinalIgnoreCase)) return "ОТКЛОНЕНА";
+        return "НЕ ОТПРАВЛЕНА";
+    }
+
+    private static Entry Field(string placeholder, Keyboard? keyboard = null) => new()
+    {
+        Placeholder = placeholder,
+        Keyboard = keyboard ?? Keyboard.Default,
+        BackgroundColor = Theme.Surface,
+        TextColor = Theme.Text,
+        PlaceholderColor = Theme.Muted,
+        HeightRequest = 48,
+        FontAutoScalingEnabled = false
+    };
+
+    private static Editor EditorField(string placeholder) => new()
+    {
+        Placeholder = placeholder,
+        BackgroundColor = Theme.Surface,
+        TextColor = Theme.Text,
+        PlaceholderColor = Theme.Muted,
+        AutoSize = EditorAutoSizeOption.TextChanges,
+        MinimumHeightRequest = 78,
+        FontAutoScalingEnabled = false
+    };
+
 }

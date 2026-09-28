@@ -166,7 +166,7 @@ public sealed class PhotoMarkupPage : ContentPage
         var format = new UIGraphicsImageRendererFormat
         {
             Opaque = false,
-            Scale = _nativeImage.Scale > 0 ? _nativeImage.Scale : UIScreen.MainScreen.Scale
+            Scale = UIScreen.MainScreen.Scale
         };
 
         using var renderer = new UIGraphicsImageRenderer(_nativeImage.Size, format);

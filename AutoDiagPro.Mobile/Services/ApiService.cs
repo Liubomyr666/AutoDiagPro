@@ -103,6 +103,108 @@ public sealed class ApiService
     public Task<List<ServerWorkOrderRecord>> GetWorkOrdersAsync(CancellationToken ct = default) =>
         GetAuthorizedAsync<List<ServerWorkOrderRecord>>("api/work-orders", ct);
 
+    public Task<ServerWorkshopSearchResult> SearchWorkshopAsync(string query, CancellationToken ct = default) =>
+        GetAuthorizedAsync<ServerWorkshopSearchResult>($"api/workshop/search?q={Uri.EscapeDataString(query)}", ct);
+
+    public Task<List<ServerServiceIntakeRecord>> GetIntakesAsync(Guid? vehicleId = null, CancellationToken ct = default) =>
+        GetAuthorizedAsync<List<ServerServiceIntakeRecord>>(vehicleId is null ? "api/intakes" : $"api/intakes?vehicleId={vehicleId}", ct);
+
+    public async Task<Guid> CreateIntakeAsync(Guid vehicleId, Guid? workOrderId, long? mileageKm, int? fuelPercent, string complaint, string damageNotes, CancellationToken ct = default)
+    {
+        var created = await PostAuthorizedAsync<CreatedIdResponse>("api/intakes", new
+        {
+            vehicleId, workOrderId, mileageKm, fuelPercent, complaint, damageNotes
+        }, ct);
+        return created.Id;
+    }
+
+    public Task UpdateIntakeAsync(Guid id, long? mileageKm, int? fuelPercent, string? complaint, string? damageNotes, string? status, CancellationToken ct = default) =>
+        SendAuthorizedNoContentAsync(new HttpMethod("PATCH"), $"api/intakes/{id}", new
+        {
+            mileageKm, fuelPercent, complaint, damageNotes, status
+        }, ct);
+
+    public Task<List<ServerPhotoRecord>> GetPhotosAsync(Guid? vehicleId = null, Guid? workOrderId = null, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        if (vehicleId is not null) query.Add($"vehicleId={vehicleId}");
+        if (workOrderId is not null) query.Add($"workOrderId={workOrderId}");
+        var path = "api/photos" + (query.Count == 0 ? "" : "?" + string.Join("&", query));
+        return GetAuthorizedAsync<List<ServerPhotoRecord>>(path, ct);
+    }
+
+    public async Task<Guid> UploadPhotoAsync(Guid vehicleId, Guid? workOrderId, string kind, string caption, string mimeType, byte[] data, CancellationToken ct = default)
+    {
+        var created = await PostAuthorizedAsync<CreatedIdResponse>("api/photos", new
+        {
+            vehicleId, workOrderId, kind, caption, mimeType,
+            base64Data = Convert.ToBase64String(data)
+        }, ct);
+        return created.Id;
+    }
+
+    public Task<List<ServerMaintenanceRecord>> GetMaintenanceAsync(Guid vehicleId, CancellationToken ct = default) =>
+        GetAuthorizedAsync<List<ServerMaintenanceRecord>>($"api/maintenance?vehicleId={vehicleId}", ct);
+
+    public async Task<Guid> CreateMaintenanceAsync(Guid vehicleId, string name, long? dueMileage, DateOnly? dueDate, long? lastDoneMileage, DateTimeOffset? lastDoneAt, string? notes, CancellationToken ct = default)
+    {
+        var created = await PostAuthorizedAsync<CreatedIdResponse>("api/maintenance", new
+        {
+            vehicleId, name, dueMileage, dueDate, lastDoneMileage, lastDoneAt, notes
+        }, ct);
+        return created.Id;
+    }
+
+    public Task<List<ServerInstalledPartRecord>> GetInstalledPartsAsync(Guid vehicleId, CancellationToken ct = default) =>
+        GetAuthorizedAsync<List<ServerInstalledPartRecord>>($"api/installed-parts?vehicleId={vehicleId}", ct);
+
+    public async Task<Guid> AddInstalledPartAsync(Guid vehicleId, Guid? workOrderId, string name, string? partNumber, string? manufacturer, decimal? purchasePrice, decimal? customerPrice, long? installedMileage, DateTimeOffset? installedAt, DateOnly? warrantyUntil, string? mechanicName, CancellationToken ct = default)
+    {
+        var created = await PostAuthorizedAsync<CreatedIdResponse>("api/installed-parts", new
+        {
+            vehicleId, workOrderId, name, partNumber, manufacturer, purchasePrice, customerPrice,
+            installedMileage, installedAt, warrantyUntil, mechanicName
+        }, ct);
+        return created.Id;
+    }
+
+    public Task<List<ServerAppointmentRecord>> GetAppointmentsAsync(Guid? vehicleId = null, CancellationToken ct = default) =>
+        GetAuthorizedAsync<List<ServerAppointmentRecord>>(vehicleId is null ? "api/appointments" : $"api/appointments?vehicleId={vehicleId}", ct);
+
+    public async Task<Guid> CreateAppointmentAsync(Guid? vehicleId, string clientName, DateTimeOffset startsAt, string work, CancellationToken ct = default)
+    {
+        var created = await PostAuthorizedAsync<CreatedIdResponse>("api/appointments", new
+        {
+            vehicleId, clientName, startsAt, work
+        }, ct);
+        return created.Id;
+    }
+
+    public Task<List<ServerInvoiceRecord>> GetInvoicesAsync(Guid? vehicleId = null, CancellationToken ct = default) =>
+        GetAuthorizedAsync<List<ServerInvoiceRecord>>(vehicleId is null ? "api/invoices" : $"api/invoices?vehicleId={vehicleId}", ct);
+
+    public Task<ServerDashboardRecord> GetDashboardAsync(CancellationToken ct = default) =>
+        GetAuthorizedAsync<ServerDashboardRecord>("api/dashboard", ct);
+
+    public Task UpdateWorkOrderAsync(Guid id, string? status = null, string? title = null, decimal? totalAmount = null, string? estimateStatus = null, CancellationToken ct = default) =>
+        SendAuthorizedNoContentAsync(new HttpMethod("PATCH"), $"api/work-orders/{id}", new
+        {
+            status, title, totalAmount, estimateStatus
+        }, ct);
+
+    public Task DecideWorkOrderAsync(Guid id, bool approved, string? note = null, CancellationToken ct = default) =>
+        SendAuthorizedNoContentAsync(HttpMethod.Post, $"api/work-orders/{id}/decision", new
+        {
+            decision = approved ? "Approved" : "Rejected",
+            note
+        }, ct);
+
+    public Task<JsonElement> GetVehicleContextAsync(Guid vehicleId, CancellationToken ct = default) =>
+        GetAuthorizedAsync<JsonElement>($"api/vehicles/{vehicleId}/context", ct);
+
+    public Task<JsonElement> DecodeVinAsync(string vin, CancellationToken ct = default) =>
+        GetAuthorizedAsync<JsonElement>($"api/vin/decode/{Uri.EscapeDataString(vin)}", ct);
+
     public Task<List<ServerUserRecord>> GetUsersAsync(CancellationToken ct = default) =>
         GetAuthorizedAsync<List<ServerUserRecord>>("api/admin/users", ct);
 

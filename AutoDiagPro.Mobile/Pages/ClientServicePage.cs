@@ -7,12 +7,12 @@ public sealed class ClientServicePage : ContentPage
 {
     private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
-    private readonly MobileWorkspaceStore _store = AppServices.Get<MobileWorkspaceStore>();
 
     private readonly VerticalStackLayout _orders = new() { Spacing = 10 };
     private readonly VerticalStackLayout _appointments = new() { Spacing = 10 };
     private readonly VerticalStackLayout _maintenance = new() { Spacing = 10 };
     private readonly VerticalStackLayout _parts = new() { Spacing = 10 };
+    private readonly VerticalStackLayout _invoices = new() { Spacing = 10 };
     private readonly HorizontalStackLayout _photos = new() { Spacing = 10 };
     private readonly Label _status = Theme.MutedText("Загрузка...");
     private readonly Entry _reason = Field("Что нужно сделать? Например: диагностика, замена масла");
@@ -58,6 +58,8 @@ public sealed class ClientServicePage : ContentPage
                     _orders,
                     Theme.H2("Мои записи"),
                     _appointments,
+                    Theme.H2("Счета"),
+                    _invoices,
                     Theme.H2("Фото ремонта"),
                     new ScrollView { Orientation = ScrollOrientation.Horizontal, Content = _photos },
                     Theme.H2("План ТО"),
@@ -196,6 +198,7 @@ public sealed class ClientServicePage : ContentPage
         _appointments.Clear();
         _maintenance.Clear();
         _parts.Clear();
+        _invoices.Clear();
         _photos.Clear();
 
         var vehicle = _state.SelectedVehicle;
@@ -207,6 +210,7 @@ public sealed class ClientServicePage : ContentPage
             _appointments.Add(Theme.CardView(Theme.MutedText("Автомобиль не выбран.")));
             _maintenance.Add(Theme.CardView(Theme.MutedText("Автомобиль не выбран.")));
             _parts.Add(Theme.CardView(Theme.MutedText("Автомобиль не выбран.")));
+            _invoices.Add(Theme.CardView(Theme.MutedText("Автомобиль не выбран.")));
             return;
         }
 
@@ -219,9 +223,10 @@ public sealed class ClientServicePage : ContentPage
             var appointmentsTask = _api.GetAppointmentsAsync(vehicle.Id);
             var maintenanceTask = _api.GetMaintenanceAsync(vehicle.Id);
             var partsTask = _api.GetInstalledPartsAsync(vehicle.Id);
+            var invoicesTask = _api.GetInvoicesAsync(vehicle.Id);
             var photosTask = _api.GetPhotosAsync(vehicle.Id);
 
-            await Task.WhenAll(ordersTask, appointmentsTask, maintenanceTask, partsTask, photosTask);
+            await Task.WhenAll(ordersTask, appointmentsTask, maintenanceTask, partsTask, invoicesTask, photosTask);
 
             var orders = (await ordersTask)
                 .Where(x => x.VehicleId == vehicle.Id)
@@ -242,6 +247,15 @@ public sealed class ClientServicePage : ContentPage
                 _appointments.Add(BuildAppointmentCard(appointment));
             if (_appointments.Count == 0)
                 _appointments.Add(Theme.CardView(Theme.MutedText("Запланированных визитов пока нет.")));
+
+            var invoices = (await invoicesTask)
+                .OrderByDescending(x => x.UpdatedAt)
+                .Take(20)
+                .ToList();
+            foreach (var invoice in invoices)
+                _invoices.Add(BuildInvoiceCard(invoice));
+            if (_invoices.Count == 0)
+                _invoices.Add(Theme.CardView(Theme.MutedText("Счетов пока нет.")));
 
             var maintenance = (await maintenanceTask)
                 .OrderBy(x => x.DueMileage ?? long.MaxValue)
@@ -376,7 +390,39 @@ public sealed class ClientServicePage : ContentPage
                     FontAutoScalingEnabled = false
                 },
                 Theme.MutedText($"{appointment.StartsAt.LocalDateTime:dd.MM.yyyy • HH:mm}"),
-                Theme.Pill(appointment.Status, Theme.Green)
+                Theme.Pill(FriendlyAppointmentStatus(appointment.Status),
+                    appointment.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase) ? Theme.Red :
+                    appointment.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase) ? Theme.Green : Theme.Accent)
+            }
+        }, new Thickness(14), 16);
+    }
+
+    private View BuildInvoiceCard(ServerInvoiceRecord invoice)
+    {
+        return Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 6,
+            Children =
+            {
+                new Label
+                {
+                    Text = string.IsNullOrWhiteSpace(invoice.Number) ? "Счёт" : invoice.Number,
+                    FontSize = 15,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Text,
+                    FontAutoScalingEnabled = false
+                },
+                Theme.MutedText(invoice.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm")),
+                new Label
+                {
+                    Text = $"{invoice.Amount:N2} €",
+                    FontSize = 18,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = invoice.Paid ? Theme.Green : Theme.Accent,
+                    FontAutoScalingEnabled = false
+                },
+                Theme.Pill(invoice.Paid ? "ОПЛАЧЕНО" : "К ОПЛАТЕ", invoice.Paid ? Theme.Green : Theme.Accent),
+                string.IsNullOrWhiteSpace(invoice.Description) ? Theme.MutedText("") : Theme.Body(invoice.Description)
             }
         }, new Thickness(14), 16);
     }
@@ -485,6 +531,14 @@ public sealed class ClientServicePage : ContentPage
             "completed" or "closed" => "Завершено",
             _ => string.IsNullOrWhiteSpace(status) ? "В работе" : status
         };
+
+    private static string FriendlyAppointmentStatus(string? status)
+    {
+        if (string.Equals(status, "Scheduled", StringComparison.OrdinalIgnoreCase)) return "Запланировано";
+        if (string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase)) return "Завершено";
+        if (string.Equals(status, "Cancelled", StringComparison.OrdinalIgnoreCase)) return "Отменено";
+        return string.IsNullOrWhiteSpace(status) ? "Запланировано" : status;
+    }
 
     private static string FriendlyEstimate(string? status)
     {

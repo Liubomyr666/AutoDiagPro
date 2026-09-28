@@ -163,12 +163,17 @@ public sealed class PhotoMarkupPage : ContentPage
         if (_drawable.Strokes.Count == 0)
             return _original;
 
-        UIGraphics.BeginImageContextWithOptions(_nativeImage.Size, false, (nfloat)1.0);
-        try
+        var format = new UIGraphicsImageRendererFormat
+        {
+            Opaque = false,
+            Scale = _nativeImage.Scale > 0 ? _nativeImage.Scale : UIScreen.MainScreen.Scale
+        };
+
+        using var renderer = new UIGraphicsImageRenderer(_nativeImage.Size, format);
+        var marked = renderer.CreateImage(rendererContext =>
         {
             _nativeImage.Draw(new CGRect(0, 0, _nativeImage.Size.Width, _nativeImage.Size.Height));
-            var context = UIGraphics.GetCurrentContext()
-                ?? throw new InvalidOperationException("Не удалось создать слой разметки.");
+            var context = rendererContext.CGContext;
 
             context.SetStrokeColor(UIColor.SystemRed.CGColor);
             context.SetLineWidth((nfloat)Math.Max(4, (double)_nativeImage.Size.Width / 180d));
@@ -189,19 +194,14 @@ public sealed class PhotoMarkupPage : ContentPage
                         (nfloat)(point.X * (float)_nativeImage.Size.Width),
                         (nfloat)(point.Y * (float)_nativeImage.Size.Height));
                 }
+
                 context.StrokePath();
             }
+        });
 
-            var marked = UIGraphics.GetImageFromCurrentImageContext()
-                ?? throw new InvalidOperationException("Не удалось сохранить разметку.");
-            using var data = marked.AsJPEG(0.92f)
-                ?? throw new InvalidOperationException("Не удалось создать JPEG.");
-            return data.ToArray();
-        }
-        finally
-        {
-            UIGraphics.EndImageContext();
-        }
+        using var data = marked.AsJPEG(0.92f)
+            ?? throw new InvalidOperationException("Не удалось создать JPEG.");
+        return data.ToArray();
     }
 
     private async Task FinishAsync(byte[]? result)

@@ -11,185 +11,151 @@ public sealed class MorePage : ContentPage
         Title = "Ещё";
         BackgroundColor = Theme.Page;
 
-        var stack = new VerticalStackLayout
+        Content = new ScrollView
         {
-            Padding = new Thickness(16, 18, 16, 34),
-            Spacing = 14,
-            Children =
+            Content = new VerticalStackLayout
             {
-                Theme.Eyebrow("ALL MODULES"),
-                Theme.H1("Все функции"),
-                Theme.MutedText("Разделы ПК-версии AutoDiag Pro в мобильной структуре."),
-                BuildGroup("ДИАГНОСТИКА", new[]
+                Padding = new Thickness(16, 18, 16, 38),
+                Spacing = 14,
+                Children =
                 {
-                    ("Подключение OBD", "Bluetooth LE / Wi-Fi Adapter Manager"),
-                    ("Быстрое сканирование", "VIN, DTC и базовые параметры"),
-                    ("Блоки управления ECU", "ECU и доступные модули"),
-                    ("Ошибки DTC", "Коды неисправностей и AI-разбор"),
-                    ("Живые данные", "Live Data / PID"),
-                    ("Пробег / износ", "Сравнение доступных данных")
-                }),
-                BuildGroup("РЕМОНТ И AI", new[]
-                {
-                    ("Repair Brain / До-После", "DTC → проверка → ремонт → контроль"),
-                    ("AI Помощник", "Неисправность, детали, цены и магазины"),
-                    ("Сервис / ТО", "Интервалы и напоминания"),
-                    ("Шины / колодки", "Износ и рекомендации"),
-                    ("Детали по VIN", "Подбор оригинала и аналогов")
-                }),
-                BuildGroup("ПРОГРАММИРОВАНИЕ И СЕРВИС", new[]
-                {
-                    ("Программирование ECU", "Прошивки и software info"),
-                    ("Tuning / Stage", "Stock / Stage / TCU"),
-                    ("Кодирование / Адаптации", "Конфигурация блоков"),
-                    ("Ключи и иммобилайзер", "Подготовка и сервис ключей"),
-                    ("Сервисные функции ECU", "Reset / EPB / DPF и сервис"),
-                    ("АКБ / Battery Coding", "Регистрация и кодирование АКБ")
-                }),
-                BuildGroup("ДАННЫЕ И СИСТЕМА", new[]
-                {
-                    ("История диагностики", "Scans и отчёты"),
-                    ("Отчёты", "Диагностика и работы"),
-                    ("Пользователи / роли", "Аккаунты и права"),
-                    ("Администрирование", "Состояние системы"),
-                    ("Настройки", "OBD, регион деталей, аккаунт")
-                })
+                    Theme.Eyebrow("AUTODIAG PRO • MOBILE WORKSPACE"),
+                    Theme.H1("Все функции"),
+                    Theme.CardView(new VerticalStackLayout
+                    {
+                        Spacing = 7,
+                        Children =
+                        {
+                            Theme.Pill(AccessPolicy.FriendlyRole, Theme.Green),
+                            Theme.Body("Структура синхронизирована с AutoDiag Pro Windows v5.0.0. Открываются только реальные мобильные экраны — без пустых заглушек.")
+                        }
+                    }),
+                    BuildGroup("ДИАГНОСТИКА", new[]
+                    {
+                        Item("Подключение OBD", "Bluetooth LE / Wi-Fi • Adapter Manager", "//diagnostics"),
+                        Item("Полная диагностика", "VIN • ECU • DTC • Readiness • Live Data", "//diagnostics"),
+                        Item("Быстрое сканирование", "VIN, DTC и базовые параметры", "//diagnostics"),
+                        Item("Блоки управления ECU", "ECU / calibration identification", "ecu"),
+                        Item("Ошибки DTC", "Коды неисправностей и AI-разбор", "//diagnostics"),
+                        Item("Живые данные", "Live Data / PID", "live"),
+                        Item("Форсунки / дизель", "Fuel pressure • trims • MAF • diesel live", "diesel"),
+                        Item("Пробег", "Доступные mileage-данные", "mileage")
+                    }),
+                    BuildGroup("РЕМОНТ И СЕРВИС", new[]
+                    {
+                        Item("Repair Brain / До-После", "Диагностика → ремонт → контроль", "repair"),
+                        Item("AI помощник", "Неисправность • проверки • детали", "ai"),
+                        Item("Сервис / ТО", "Интервалы и напоминания", "service"),
+                        Item("Шины / колодки", "Замеры износа и история", "wear"),
+                        Item("Детали по VIN", "Оригинал, аналоги и совместимость", "parts"),
+                        Item("История диагностики", "Все сохранённые scan", "history"),
+                        Item("Отчёты / PDF", "Сервисный отчёт и сравнение", "reports")
+                    }),
+                    BuildGroup("ПРОГРАММИРОВАНИЕ", new[]
+                    {
+                        Program("Программирование ECU", "Software / calibration • capability check"),
+                        Program("Tuning / Stage", "Stock • Stage • ECU/TCU preparation"),
+                        Program("Кодирование / Адаптации", "Coding • adaptations • configuration"),
+                        Program("Ключи и иммобилайзер", "Key / immobilizer capability check"),
+                        Program("Сервисные функции ECU", "Reset • EPB • DPF • service"),
+                        Program("АКБ / Battery Coding", "Battery registration / coding profile")
+                    }),
+                    BuildGroup("СТО", new[]
+                    {
+                        Item("Клиенты / CRM", "Клиенты, контакты и история", "workshopmanager", "Клиенты / CRM"),
+                        Item("Запись клиентов", "Календарь и визиты", "workshopmanager", "Запись"),
+                        Item("Счета / чеки", "Суммы и статус оплаты", "workshopmanager", "Счета / чеки"),
+                        Item("Склад", "Остатки и поступления", "inventory"),
+                        Item("QR-приёмка деталей", "Приём и привязка к авто", "qrparts"),
+                        Item("Управление СТО", "Заказ-наряды • статусы • сметы", "//workshop")
+                    }),
+                    BuildGroup("СИСТЕМА", new[]
+                    {
+                        Item("Пользователи / роли", "Аккаунты сотрудников и клиентов", "admin"),
+                        Item("Администрирование", "Состояние системы и доступы", "admin"),
+                        Item("Настройки", "OBD • регион • аккаунт", "settings")
+                    }),
+                    Theme.MutedText($"AutoDiag Pro iOS • {AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})")
+                }
             }
         };
-
-        Content = new ScrollView { Content = stack };
     }
 
-    private View BuildGroup(string title, IEnumerable<(string Title, string Subtitle)> items)
+    private static MenuItem Item(string title, string subtitle, string route, string? module = null) =>
+        new(title, subtitle, route, module, false);
+
+    private static MenuItem Program(string title, string subtitle) =>
+        new(title, subtitle, "programming", title, true);
+
+    private View BuildGroup(string title, IEnumerable<MenuItem> items)
     {
         var list = new VerticalStackLayout { Spacing = 9 };
         list.Add(Theme.Eyebrow(title));
         foreach (var item in items)
-            list.Add(ModuleRow(item.Title, item.Subtitle));
+            list.Add(ModuleRow(item));
         return list;
     }
 
-    private View ModuleRow(string title, string subtitle)
+    private View ModuleRow(MenuItem item)
     {
-        var grid = new Grid
+        var text = new VerticalStackLayout
         {
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
-            ColumnSpacing = 10
-        };
-        grid.Add(new VerticalStackLayout
-        {
-            Spacing = 4,
+            Spacing = 3,
             Children =
             {
-                new Label { Text = title, FontSize = 15, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
-                Theme.MutedText(subtitle)
+                new Label
+                {
+                    Text = item.Title,
+                    FontSize = 15,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Text,
+                    FontAutoScalingEnabled = false
+                },
+                Theme.MutedText(item.Subtitle)
             }
-        }, 0, 0);
+        };
+
+        var grid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 10
+        };
+        grid.Add(text, 0, 0);
         grid.Add(new Label
         {
             Text = "›",
-            FontSize = 28,
+            FontSize = 27,
             TextColor = Theme.Accent,
             VerticalTextAlignment = TextAlignment.Center,
-            HorizontalOptions = LayoutOptions.End
+            FontAutoScalingEnabled = false
         }, 1, 0);
 
         var card = Theme.CardView(grid, new Thickness(14));
-
         var tap = new TapGestureRecognizer();
-        tap.Tapped += async (_, _) => await OpenAsync(title, subtitle);
+        tap.Tapped += async (_, _) => await OpenAsync(item);
         card.GestureRecognizers.Add(tap);
         return card;
     }
 
-    private async Task OpenAsync(string title, string subtitle)
+    private async Task OpenAsync(MenuItem item)
     {
-        if (title is "Подключение OBD" or "Быстрое сканирование" or "Ошибки DTC")
+        if (!string.IsNullOrWhiteSpace(item.Module))
         {
-            await Shell.Current.GoToAsync("//diagnostics");
-            return;
-        }
-        if (title == "Живые данные")
-        {
-            await Shell.Current.GoToAsync("live");
-            return;
-        }
-        if (title == "Блоки управления ECU")
-        {
-            await Shell.Current.GoToAsync("ecu");
-            return;
-        }
-        if (title == "Пробег / износ")
-        {
-            await Shell.Current.GoToAsync("mileage");
-            return;
-        }
-        if (title == "Шины / колодки")
-        {
-            await Shell.Current.GoToAsync("wear");
-            return;
-        }
-        if (title == "Repair Brain / До-После")
-        {
-            await Shell.Current.GoToAsync("repair");
-            return;
-        }
-        if (title == "AI Помощник")
-        {
-            await Shell.Current.GoToAsync("ai");
-            return;
-        }
-        if (title == "Сервис / ТО")
-        {
-            await Shell.Current.GoToAsync("service");
-            return;
-        }
-        if (title == "Детали по VIN")
-        {
-            await Shell.Current.GoToAsync("parts");
-            return;
-        }
-        if (title is "История диагностики")
-        {
-            await Shell.Current.GoToAsync("history");
-            return;
-        }
-        if (title == "Отчёты")
-        {
-            await Shell.Current.GoToAsync("reports");
-            return;
-        }
-        if (title is "Пользователи / роли" or "Администрирование")
-        {
-            await Shell.Current.GoToAsync("admin");
-            return;
-        }
-        if (title == "Настройки")
-        {
-            await Shell.Current.GoToAsync("settings");
-            return;
-        }
-        if (title is "Программирование ECU" or "Tuning / Stage" or "Кодирование / Адаптации" or "Ключи и иммобилайзер" or "Сервисные функции ECU" or "АКБ / Battery Coding")
-        {
-            _state.PendingModuleTitle = title;
-            _state.PendingModuleSubtitle = subtitle;
-            await Shell.Current.GoToAsync("programming");
-            return;
+            _state.PendingModuleTitle = item.Module;
+            _state.PendingModuleSubtitle = item.Subtitle;
         }
 
-        _state.PendingModuleTitle = title;
-        _state.PendingModuleSubtitle = subtitle;
-        _state.PendingModuleBody = title switch
-        {
-            "Repair Brain / До-После" => "Используй последнюю диагностику как исходную точку: ошибка → вероятная причина → измерения → подтверждённый ремонт → контрольный scan. AI помогает объяснить результат и подобрать детали.",
-            "Программирование ECU" => "Мобильный интерфейс показывает раздел и подготовку операции. Реальная запись блока разрешается только с совместимым интерфейсом, стабильным питанием и поддержанным автомобилем.",
-            "Tuning / Stage" => "Раздел предназначен для профилей Stock/Stage и информации по ECU/TCU. Прошивка не запускается автоматически и требует совместимого оборудования.",
-            "Кодирование / Адаптации" => "Подготовка кодирования и адаптаций по автомобилю. Перед записью приложение должно проверить VIN, блок, напряжение и поддержку процедуры.",
-            "Ключи и иммобилайзер" => "Инструменты ключей и иммобилайзера отображаются в общей структуре. Реальные операции доступны только для поддержанных автомобилей и авторизованного сервисного сценария.",
-            "АКБ / Battery Coding" => "Регистрация и кодирование аккумулятора для поддержанных автомобилей: технология, ёмкость, производитель и подтверждение замены.",
-            "Сервисные функции ECU" => "Сервисные процедуры: сбросы, EPB, DPF и другие функции в зависимости от поддерживаемого блока.",
-            _ => $"{subtitle}. Раздел перенесён из ПК-версии в мобильную архитектуру AutoDiag Pro."
-        };
-        await Shell.Current.GoToAsync("module");
+        await Shell.Current.GoToAsync(item.Route);
     }
+
+    private sealed record MenuItem(
+        string Title,
+        string Subtitle,
+        string Route,
+        string? Module,
+        bool Programming);
 }

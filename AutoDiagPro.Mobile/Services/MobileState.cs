@@ -16,5 +16,4 @@ public sealed class MobileState
     public string PendingAiQuestion { get; set; } = "";
     public string PendingModuleTitle { get; set; } = "";
     public string PendingModuleSubtitle { get; set; } = "";
-    public string PendingModuleBody { get; set; } = "";
 }

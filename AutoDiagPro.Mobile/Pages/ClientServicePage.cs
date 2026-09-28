@@ -10,6 +10,9 @@ public sealed class ClientServicePage : ContentPage
 
     private readonly VerticalStackLayout _orders = new() { Spacing = 10 };
     private readonly VerticalStackLayout _appointments = new() { Spacing = 10 };
+    private readonly VerticalStackLayout _maintenance = new() { Spacing = 10 };
+    private readonly VerticalStackLayout _parts = new() { Spacing = 10 };
+    private readonly HorizontalStackLayout _photos = new() { Spacing = 10 };
     private readonly Label _status = Theme.MutedText("Загрузка...");
     private readonly Entry _reason = Field("Что нужно сделать? Например: диагностика, замена масла");
     private readonly DatePicker _date = new()
@@ -53,7 +56,13 @@ public sealed class ClientServicePage : ContentPage
                     Theme.H2("Работы на СТО"),
                     _orders,
                     Theme.H2("Мои записи"),
-                    _appointments
+                    _appointments,
+                    Theme.H2("Фото ремонта"),
+                    new ScrollView { Orientation = ScrollOrientation.Horizontal, Content = _photos },
+                    Theme.H2("План ТО"),
+                    _maintenance,
+                    Theme.H2("Установленные детали"),
+                    _parts
                 }
             }
         };

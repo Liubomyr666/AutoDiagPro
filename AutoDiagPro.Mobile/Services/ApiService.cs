@@ -262,6 +262,59 @@ public sealed class ApiService
             description, amount, paid
         }, ct);
 
+
+    public Task<List<ServerWearCheckRecord>> GetWearChecksAsync(Guid vehicleId, CancellationToken ct = default) =>
+        GetAuthorizedAsync<List<ServerWearCheckRecord>>($"api/wear?vehicleId={vehicleId}", ct);
+
+    public async Task<Guid> CreateWearCheckAsync(
+        Guid vehicleId,
+        double? tireFrontMm,
+        double? tireRearMm,
+        double? padFrontMm,
+        double? padRearMm,
+        string? notes,
+        CancellationToken ct = default)
+    {
+        var created = await PostAuthorizedAsync<CreatedIdResponse>("api/wear", new
+        {
+            vehicleId,
+            tireFrontMm,
+            tireRearMm,
+            padFrontMm,
+            padRearMm,
+            notes
+        }, ct);
+        return created.Id;
+    }
+
+    public Task<List<ServerInventoryRecord>> GetInventoryAsync(CancellationToken ct = default) =>
+        GetAuthorizedAsync<List<ServerInventoryRecord>>("api/inventory", ct);
+
+    public async Task<Guid> ReceiveInventoryAsync(
+        Guid? vehicleId,
+        string code,
+        string name,
+        int quantity,
+        string? notes = null,
+        CancellationToken ct = default)
+    {
+        var created = await PostAuthorizedAsync<CreatedIdResponse>("api/inventory/receive", new
+        {
+            vehicleId,
+            code,
+            name,
+            quantity,
+            notes
+        }, ct);
+        return created.Id;
+    }
+
+    public Task UpdateInventoryQuantityAsync(Guid id, int quantity, CancellationToken ct = default) =>
+        SendAuthorizedNoContentAsync(new HttpMethod("PATCH"), $"api/inventory/{id}", new
+        {
+            quantity
+        }, ct);
+
     public Task<List<ServerUserRecord>> GetUsersAsync(CancellationToken ct = default) =>
         GetAuthorizedAsync<List<ServerUserRecord>>("api/admin/users", ct);
 

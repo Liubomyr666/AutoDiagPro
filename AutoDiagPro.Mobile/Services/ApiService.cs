@@ -223,6 +223,39 @@ public sealed class ApiService
     public Task<JsonElement> DecodeVinAsync(string vin, CancellationToken ct = default) =>
         GetAuthorizedAsync<JsonElement>($"api/vin/decode/{Uri.EscapeDataString(vin)}", ct);
 
+    public Task<List<ServerWorkshopClientRecord>> GetClientsAsync(CancellationToken ct = default) =>
+        GetAuthorizedAsync<List<ServerWorkshopClientRecord>>("api/clients", ct);
+
+    public async Task<Guid> CreateClientAsync(string fullName, string? phone, string? email, string? notes, CancellationToken ct = default)
+    {
+        var created = await PostAuthorizedAsync<CreatedIdResponse>("api/clients", new
+        {
+            fullName, phone, email, notes
+        }, ct);
+        return created.Id;
+    }
+
+    public Task UpdateAppointmentAsync(Guid id, string? status = null, DateTimeOffset? startsAt = null, string? work = null, CancellationToken ct = default) =>
+        SendAuthorizedNoContentAsync(new HttpMethod("PATCH"), $"api/appointments/{id}", new
+        {
+            status, startsAt, work
+        }, ct);
+
+    public async Task<Guid> CreateInvoiceAsync(Guid? vehicleId, Guid? workOrderId, string? number, string? description, decimal amount, bool paid, CancellationToken ct = default)
+    {
+        var created = await PostAuthorizedAsync<CreatedIdResponse>("api/invoices", new
+        {
+            vehicleId, workOrderId, number, description, amount, paid
+        }, ct);
+        return created.Id;
+    }
+
+    public Task UpdateInvoiceAsync(Guid id, string? description = null, decimal? amount = null, bool? paid = null, CancellationToken ct = default) =>
+        SendAuthorizedNoContentAsync(new HttpMethod("PATCH"), $"api/invoices/{id}", new
+        {
+            description, amount, paid
+        }, ct);
+
     public Task<List<ServerUserRecord>> GetUsersAsync(CancellationToken ct = default) =>
         GetAuthorizedAsync<List<ServerUserRecord>>("api/admin/users", ct);
 

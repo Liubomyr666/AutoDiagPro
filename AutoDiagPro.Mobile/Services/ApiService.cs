@@ -155,6 +155,12 @@ public sealed class ApiService
         return created.Id;
     }
 
+    public Task UpdateMaintenanceAsync(Guid id, string? name = null, long? dueMileage = null, DateOnly? dueDate = null, long? lastDoneMileage = null, DateTimeOffset? lastDoneAt = null, string? notes = null, CancellationToken ct = default) =>
+        SendAuthorizedNoContentAsync(new HttpMethod("PATCH"), $"api/maintenance/{id}", new
+        {
+            name, dueMileage, dueDate, lastDoneMileage, lastDoneAt, notes
+        }, ct);
+
     public Task<List<ServerInstalledPartRecord>> GetInstalledPartsAsync(Guid vehicleId, CancellationToken ct = default) =>
         GetAuthorizedAsync<List<ServerInstalledPartRecord>>($"api/installed-parts?vehicleId={vehicleId}", ct);
 

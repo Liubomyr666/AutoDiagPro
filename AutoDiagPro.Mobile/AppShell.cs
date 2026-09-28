@@ -12,7 +12,6 @@ public sealed class AppShell : Shell
         Routing.RegisterRoute("ai", typeof(AiPage));
         Routing.RegisterRoute("history", typeof(HistoryPage));
         Routing.RegisterRoute("settings", typeof(SettingsPage));
-        Routing.RegisterRoute("module", typeof(ModulePage));
         Routing.RegisterRoute("live", typeof(LiveDataPage));
         Routing.RegisterRoute("ecu", typeof(EcuInfoPage));
         Routing.RegisterRoute("repair", typeof(RepairBrainPage));

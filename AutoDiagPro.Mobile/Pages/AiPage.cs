@@ -192,9 +192,23 @@ public sealed class AiPage : ContentPage
                 ? "Последняя диагностика отсутствует."
                 : "Последняя диагностика:\n" + _state.LastDiagnosticSummary;
 
+            var cloudContext = "";
+            if (vehicle is not null)
+            {
+                try
+                {
+                    var cloud = await _api.GetVehicleContextAsync(vehicle.Id);
+                    cloudContext = "\nИстория AutoDiag Cloud:\n" + cloud.ToString();
+                }
+                catch
+                {
+                    cloudContext = "\nИстория AutoDiag Cloud временно недоступна.";
+                }
+            }
+
             var context =
                 vehicleContext + "\n" +
-                diagnosticContext + "\n" +
+                diagnosticContext + cloudContext + "\n" +
                 $"Регион поиска запчастей: {region}.";
 
             var guidedQuestion =

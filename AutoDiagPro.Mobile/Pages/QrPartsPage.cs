@@ -5,7 +5,7 @@ namespace AutoDiagPro.Mobile.Pages;
 public sealed class QrPartsPage : ContentPage
 {
     private readonly QrScannerService _scanner = AppServices.Get<QrScannerService>();
-    private readonly MobileWorkspaceStore _store = AppServices.Get<MobileWorkspaceStore>();
+    private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
 
     private readonly Entry _code = Field("QR / штрихкод");
@@ -27,27 +27,27 @@ public sealed class QrPartsPage : ContentPage
         var photo = Theme.SecondaryButton("QR с фотографии");
         photo.Clicked += async (_, _) => await ScanAsync(true);
 
-        var receive = Theme.SecondaryButton("Принять деталь");
+        var receive = Theme.PrimaryButton("Принять в облачный склад");
         receive.Clicked += async (_, _) => await ReceiveAsync();
 
         Content = new ScrollView
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(16, 18, 16, 34),
+                Padding = new Thickness(16, 18, 16, 40),
                 Spacing = 14,
                 Children =
                 {
-                    Theme.Eyebrow("PARTS RECEIVING"),
+                    Theme.Eyebrow("PARTS RECEIVING • CLOUD"),
                     Theme.H1("QR-приём запчастей"),
-                    Theme.MutedText("Код распознаётся системным Apple Vision и сохраняется локально с привязкой к выбранному автомобилю."),
+                    Theme.MutedText("Код распознаётся Apple Vision и сразу сохраняется в общем складе AutoDiag Pro."),
                     Theme.CardView(new VerticalStackLayout
                     {
                         Spacing = 9,
                         Children = { scan, photo, _code, _name, _qty, receive }
                     }),
                     _status,
-                    Theme.H2("Последние поступления"),
+                    Theme.H2("Облачный склад"),
                     _recent
                 }
             }
@@ -74,12 +74,12 @@ public sealed class QrPartsPage : ContentPage
 
             if (string.IsNullOrWhiteSpace(value))
             {
-                _status.Text = "QR/штрихкод не найден. Попробуйте снять ближе и без бликов.";
+                _status.Text = "QR/штрихкод не найден. Снимите ближе и без бликов.";
                 _status.TextColor = Theme.Accent;
                 return;
             }
 
-            _code.Text = value;
+            _code.Text = value.Trim();
             _status.Text = "Код распознан.";
             _status.TextColor = Theme.Green;
         }
@@ -92,55 +92,98 @@ public sealed class QrPartsPage : ContentPage
 
     private async Task ReceiveAsync()
     {
-        if (string.IsNullOrWhiteSpace(_code.Text))
+        var code = _code.Text?.Trim() ?? "";
+        var name = _name.Text?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(code))
         {
             _status.Text = "Сначала отсканируйте или введите код.";
             _status.TextColor = Theme.Accent;
             return;
         }
 
-        var db = await _store.LoadAsync();
-        db.ReceivedParts.Add(new ReceivedPartMobile
+        if (string.IsNullOrWhiteSpace(name))
         {
-            VehicleId = _state.SelectedVehicle?.Id,
-            Code = _code.Text.Trim(),
-            Name = string.IsNullOrWhiteSpace(_name.Text) ? "Деталь" : _name.Text.Trim(),
-            Quantity = int.TryParse(_qty.Text, out var qty) && qty > 0 ? qty : 1
-        });
-        await _store.SaveAsync(db);
+            _status.Text = "Введите название детали.";
+            _status.TextColor = Theme.Accent;
+            return;
+        }
 
-        _status.Text = _state.SelectedVehicle is null
-            ? "Деталь принята без привязки к авто."
-            : $"Деталь привязана: {_state.SelectedVehicle.DisplayName}";
-        _status.TextColor = Theme.Green;
+        var quantity = int.TryParse(_qty.Text, out var qty) && qty > 0 ? qty : 1;
 
-        _code.Text = "";
-        _name.Text = "";
-        _qty.Text = "1";
-        await LoadRecentAsync();
+        try
+        {
+            _status.Text = "Принимаю в AutoDiag Cloud...";
+            _status.TextColor = Theme.Accent;
+
+            await _api.ReceiveInventoryAsync(
+                _state.SelectedVehicle?.Id,
+                code,
+                name,
+                quantity);
+
+            _status.Text = _state.SelectedVehicle is null
+                ? $"Принято: {name} ×{quantity} • общий склад"
+                : $"Принято: {name} ×{quantity} • {_state.SelectedVehicle.DisplayName}";
+            _status.TextColor = Theme.Green;
+
+            _code.Text = "";
+            _name.Text = "";
+            _qty.Text = "1";
+            await LoadRecentAsync();
+        }
+        catch (Exception ex)
+        {
+            _status.Text = "Приёмка: " + ex.Message;
+            _status.TextColor = Theme.Red;
+        }
     }
 
     private async Task LoadRecentAsync()
     {
         _recent.Clear();
-        var db = await _store.LoadAsync();
-        foreach (var part in db.ReceivedParts.OrderByDescending(x => x.ReceivedAt).Take(15))
+        try
         {
-            var vehicle = _state.Vehicles.FirstOrDefault(x => x.Id == part.VehicleId)?.DisplayName ?? "Без авто";
-            _recent.Add(Theme.CardView(new VerticalStackLayout
-            {
-                Spacing = 5,
-                Children =
-                {
-                    new Label { Text = $"{part.Name} ×{part.Quantity}", FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
-                    Theme.MutedText(part.Code),
-                    new Label { Text = $"{vehicle} • {part.ReceivedAt.LocalDateTime:dd.MM HH:mm}", FontSize = 11, TextColor = Theme.Accent }
-                }
-            }, new Thickness(12)));
-        }
+            var items = (await _api.GetInventoryAsync())
+                .OrderByDescending(x => x.LastReceivedAt ?? x.UpdatedAt)
+                .Take(15)
+                .ToList();
 
-        if (_recent.Count == 0)
-            _recent.Add(Theme.CardView(Theme.MutedText("Поступлений пока нет.")));
+            foreach (var part in items)
+            {
+                var vehicle = part.VehicleId is Guid id
+                    ? _state.Vehicles.FirstOrDefault(x => x.Id == id)?.DisplayName ?? "Привязано к авто"
+                    : "Общий склад";
+
+                _recent.Add(Theme.CardView(new VerticalStackLayout
+                {
+                    Spacing = 5,
+                    Children =
+                    {
+                        new Label
+                        {
+                            Text = $"{part.Name} ×{part.Quantity}",
+                            FontAttributes = FontAttributes.Bold,
+                            TextColor = Theme.Text
+                        },
+                        Theme.MutedText(part.Code),
+                        new Label
+                        {
+                            Text = vehicle +
+                                (part.LastReceivedAt is null ? "" : $" • {part.LastReceivedAt.Value.LocalDateTime:dd.MM HH:mm}"),
+                            FontSize = 11,
+                            TextColor = Theme.Accent
+                        }
+                    }
+                }, new Thickness(12)));
+            }
+
+            if (_recent.Count == 0)
+                _recent.Add(Theme.CardView(Theme.MutedText("Облачный склад пока пуст.")));
+        }
+        catch (Exception ex)
+        {
+            _recent.Add(Theme.CardView(Theme.MutedText("Не удалось загрузить склад: " + ex.Message)));
+        }
     }
 
     private static Entry Field(string placeholder, Keyboard? keyboard = null) => new()
@@ -150,6 +193,7 @@ public sealed class QrPartsPage : ContentPage
         BackgroundColor = Theme.Surface,
         TextColor = Theme.Text,
         PlaceholderColor = Theme.Muted,
-        HeightRequest = 48
+        HeightRequest = 48,
+        FontAutoScalingEnabled = false
     };
 }

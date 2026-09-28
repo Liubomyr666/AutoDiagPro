@@ -55,7 +55,7 @@ public sealed class WorkshopManagerPage : ContentPage
 
     private async Task RenderClientsAsync()
     {
-        _body.Add(Theme.MutedText("Локальная CRM на iPhone: контакты и заметки клиента. Автомобили хранятся на AutoDiag Server."));
+        _body.Add(Theme.MutedText("Облачная CRM AutoDiag: контакты клиента доступны на Windows и iPhone."));
 
         var name = Field("Имя клиента");
         var phone = Field("Телефон", Keyboard.Telephone);
@@ -71,16 +71,19 @@ public sealed class WorkshopManagerPage : ContentPage
                 return;
             }
 
-            var db = await _store.LoadAsync();
-            db.Clients.Add(new MobileClientRecord
+            try
             {
-                Name = name.Text.Trim(),
-                Phone = phone.Text?.Trim() ?? "",
-                Email = email.Text?.Trim() ?? "",
-                Notes = notes.Text?.Trim() ?? ""
-            });
-            await _store.SaveAsync(db);
-            await RenderAsync();
+                await _api.CreateClientAsync(
+                    name.Text.Trim(),
+                    phone.Text?.Trim(),
+                    email.Text?.Trim(),
+                    notes.Text?.Trim());
+                await RenderAsync();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("CRM", ex.Message, "OK");
+            }
         };
 
         _body.Add(Theme.CardView(new VerticalStackLayout
@@ -89,32 +92,26 @@ public sealed class WorkshopManagerPage : ContentPage
             Children = { name, phone, email, notes, add }
         }));
 
-        var data = await _store.LoadAsync();
-        _body.Add(Theme.H2($"Клиенты • {data.Clients.Count}"));
+        var clients = await _api.GetClientsAsync();
+        _body.Add(Theme.H2($"Клиенты • {clients.Count}"));
 
-        foreach (var client in data.Clients.OrderBy(x => x.Name))
+        foreach (var client in clients.OrderBy(x => x.FullName))
         {
-            var delete = Theme.CompactButton("Удалить");
-            delete.TextColor = Theme.Red;
-            delete.Clicked += async (_, _) =>
-            {
-                var yes = await DisplayAlert("CRM", $"Удалить {client.Name}?", "Удалить", "Отмена");
-                if (!yes) return;
-                var db = await _store.LoadAsync();
-                db.Clients.RemoveAll(x => x.Id == client.Id);
-                await _store.SaveAsync(db);
-                await RenderAsync();
-            };
-
             _body.Add(Theme.CardView(new VerticalStackLayout
             {
                 Spacing = 5,
                 Children =
                 {
-                    new Label { Text = client.Name, FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                    new Label
+                    {
+                        Text = client.FullName,
+                        FontSize = 16,
+                        FontAttributes = FontAttributes.Bold,
+                        TextColor = Theme.Text
+                    },
                     Theme.MutedText(string.Join(" • ", new[] { client.Phone, client.Email }.Where(x => !string.IsNullOrWhiteSpace(x)))),
-                    string.IsNullOrWhiteSpace(client.Notes) ? Theme.MutedText("Без заметок") : Theme.Body(client.Notes),
-                    delete
+                    Theme.MutedText("ID • " + client.Id.ToString("N")[..8].ToUpperInvariant()),
+                    string.IsNullOrWhiteSpace(client.Notes) ? Theme.MutedText("Без заметок") : Theme.Body(client.Notes)
                 }
             }, new Thickness(13)));
         }
@@ -122,12 +119,22 @@ public sealed class WorkshopManagerPage : ContentPage
 
     private async Task RenderAppointmentsAsync()
     {
-        _body.Add(Theme.MutedText("Запись клиента на сервис с привязкой к текущему автомобилю."));
+        _body.Add(Theme.MutedText("Облачная запись клиента на сервис. Клиент увидит её в своём приложении."));
 
         var client = Field("Клиент");
         var work = Field("Работы / причина визита");
-        var date = new DatePicker { Date = DateTime.Today, BackgroundColor = Theme.Surface, TextColor = Theme.Text };
-        var time = new TimePicker { Time = DateTime.Now.AddHours(1).TimeOfDay, BackgroundColor = Theme.Surface, TextColor = Theme.Text };
+        var date = new DatePicker
+        {
+            Date = DateTime.Today,
+            BackgroundColor = Theme.Surface,
+            TextColor = Theme.Text
+        };
+        var time = new TimePicker
+        {
+            Time = DateTime.Now.AddHours(1).TimeOfDay,
+            BackgroundColor = Theme.Surface,
+            TextColor = Theme.Text
+        };
 
         var add = Theme.PrimaryButton("Добавить запись");
         add.Clicked += async (_, _) =>
@@ -138,17 +145,20 @@ public sealed class WorkshopManagerPage : ContentPage
                 return;
             }
 
-            var starts = date.Date.Date + time.Time;
-            var db = await _store.LoadAsync();
-            db.Appointments.Add(new MobileAppointmentRecord
+            try
             {
-                VehicleId = _state.SelectedVehicle?.Id,
-                ClientName = client.Text.Trim(),
-                StartsAt = new DateTimeOffset(starts),
-                Work = work.Text.Trim()
-            });
-            await _store.SaveAsync(db);
-            await RenderAsync();
+                var starts = new DateTimeOffset(date.Date.Date + time.Time);
+                await _api.CreateAppointmentAsync(
+                    _state.SelectedVehicle?.Id,
+                    client.Text.Trim(),
+                    starts,
+                    work.Text.Trim());
+                await RenderAsync();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Запись", ex.Message, "OK");
+            }
         };
 
         _body.Add(Theme.CardView(new VerticalStackLayout
@@ -163,20 +173,33 @@ public sealed class WorkshopManagerPage : ContentPage
             }
         }));
 
-        var data = await _store.LoadAsync();
-        var list = data.Appointments.OrderBy(x => x.StartsAt).ToList();
+        var list = (await _api.GetAppointmentsAsync())
+            .OrderBy(x => x.StartsAt)
+            .ToList();
+
+        if (_state.Vehicles.Count == 0)
+            _state.Vehicles = await _api.GetVehiclesAsync();
+
         _body.Add(Theme.H2($"Записи • {list.Count}"));
 
         foreach (var item in list)
         {
-            var done = Theme.CompactButton(item.Status == "Готово" ? "Готово ✓" : "Отметить готово");
+            var done = Theme.CompactButton(
+                string.Equals(item.Status, "Completed", StringComparison.OrdinalIgnoreCase)
+                    ? "Готово ✓"
+                    : "Отметить готово");
+
             done.Clicked += async (_, _) =>
             {
-                var db = await _store.LoadAsync();
-                var target = db.Appointments.FirstOrDefault(x => x.Id == item.Id);
-                if (target is not null) target.Status = "Готово";
-                await _store.SaveAsync(db);
-                await RenderAsync();
+                try
+                {
+                    await _api.UpdateAppointmentAsync(item.Id, status: "Completed");
+                    await RenderAsync();
+                }
+                catch (Exception ex)
+                {
+                    await DisplayAlert("Запись", ex.Message, "OK");
+                }
             };
 
             var vehicle = _state.Vehicles.FirstOrDefault(x => x.Id == item.VehicleId)?.DisplayName ?? "Без авто";
@@ -185,7 +208,12 @@ public sealed class WorkshopManagerPage : ContentPage
                 Spacing = 5,
                 Children =
                 {
-                    new Label { Text = $"{item.StartsAt.LocalDateTime:dd.MM HH:mm} • {item.ClientName}", FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                    new Label
+                    {
+                        Text = $"{item.StartsAt.LocalDateTime:dd.MM HH:mm} • {item.ClientName}",
+                        FontAttributes = FontAttributes.Bold,
+                        TextColor = Theme.Text
+                    },
                     Theme.Body(item.Work),
                     Theme.MutedText(vehicle + " • " + item.Status),
                     done
@@ -196,7 +224,7 @@ public sealed class WorkshopManagerPage : ContentPage
 
     private async Task RenderInvoicesAsync()
     {
-        _body.Add(Theme.MutedText("Локальные счета/чеки для выбранного автомобиля."));
+        _body.Add(Theme.MutedText("Облачные счета и чеки выбранного автомобиля. Клиент видит их в сервисной истории."));
 
         var number = Field("Номер");
         number.Text = "INV-" + DateTime.Now.ToString("yyMMdd-HHmm");
@@ -209,30 +237,51 @@ public sealed class WorkshopManagerPage : ContentPage
             Children =
             {
                 paid,
-                new Label { Text = "Оплачено", TextColor = Theme.Text, VerticalTextAlignment = TextAlignment.Center }
+                new Label
+                {
+                    Text = "Оплачено",
+                    TextColor = Theme.Text,
+                    VerticalTextAlignment = TextAlignment.Center
+                }
             }
         };
 
         var add = Theme.PrimaryButton("Создать счёт");
         add.Clicked += async (_, _) =>
         {
-            if (!decimal.TryParse((amount.Text ?? "").Replace(',', '.'), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var value))
+            if (!decimal.TryParse(
+                    (amount.Text ?? "").Replace(',', '.'),
+                    System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var value))
             {
                 await DisplayAlert("Счёт", "Введите сумму.", "OK");
                 return;
             }
 
-            var db = await _store.LoadAsync();
-            db.Invoices.Add(new MobileInvoiceRecord
+            try
             {
-                VehicleId = _state.SelectedVehicle?.Id,
-                Number = string.IsNullOrWhiteSpace(number.Text) ? "INV" : number.Text.Trim(),
-                Description = description.Text?.Trim() ?? "",
-                Amount = value,
-                Paid = paid.IsToggled
-            });
-            await _store.SaveAsync(db);
-            await RenderAsync();
+                var order = _state.SelectedVehicle is null
+                    ? null
+                    : (await _api.GetWorkOrdersAsync())
+                        .Where(x => x.VehicleId == _state.SelectedVehicle.Id)
+                        .OrderByDescending(x => x.UpdatedAt)
+                        .FirstOrDefault();
+
+                await _api.CreateInvoiceAsync(
+                    _state.SelectedVehicle?.Id,
+                    order?.Id,
+                    string.IsNullOrWhiteSpace(number.Text) ? null : number.Text.Trim(),
+                    description.Text?.Trim(),
+                    value,
+                    paid.IsToggled);
+
+                await RenderAsync();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Счёт", ex.Message, "OK");
+            }
         };
 
         _body.Add(Theme.CardView(new VerticalStackLayout
@@ -241,8 +290,10 @@ public sealed class WorkshopManagerPage : ContentPage
             Children = { number, description, amount, paidRow, add }
         }));
 
-        var data = await _store.LoadAsync();
-        var list = data.Invoices.OrderByDescending(x => x.CreatedAt).ToList();
+        var list = (await _api.GetInvoicesAsync(_state.SelectedVehicle?.Id))
+            .OrderByDescending(x => x.CreatedAt)
+            .ToList();
+
         _body.Add(Theme.H2($"Счета • {list.Count}"));
 
         foreach (var invoice in list)
@@ -250,11 +301,15 @@ public sealed class WorkshopManagerPage : ContentPage
             var toggle = Theme.CompactButton(invoice.Paid ? "Оплачено ✓" : "Отметить оплату");
             toggle.Clicked += async (_, _) =>
             {
-                var db = await _store.LoadAsync();
-                var target = db.Invoices.FirstOrDefault(x => x.Id == invoice.Id);
-                if (target is not null) target.Paid = true;
-                await _store.SaveAsync(db);
-                await RenderAsync();
+                try
+                {
+                    await _api.UpdateInvoiceAsync(invoice.Id, paid: true);
+                    await RenderAsync();
+                }
+                catch (Exception ex)
+                {
+                    await DisplayAlert("Счёт", ex.Message, "OK");
+                }
             };
 
             _body.Add(Theme.CardView(new VerticalStackLayout
@@ -267,11 +322,21 @@ public sealed class WorkshopManagerPage : ContentPage
                         Spacing = 12,
                         Children =
                         {
-                            new Label { Text = invoice.Number, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
-                            new Label { Text = $"{invoice.Amount:N2} €", FontAttributes = FontAttributes.Bold, TextColor = Theme.Accent }
+                            new Label
+                            {
+                                Text = invoice.Number,
+                                FontAttributes = FontAttributes.Bold,
+                                TextColor = Theme.Text
+                            },
+                            new Label
+                            {
+                                Text = $"{invoice.Amount:N2} €",
+                                FontAttributes = FontAttributes.Bold,
+                                TextColor = Theme.Accent
+                            }
                         }
                     },
-                    Theme.Body(invoice.Description),
+                    Theme.Body(invoice.Description ?? ""),
                     Theme.MutedText(invoice.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm")),
                     toggle
                 }

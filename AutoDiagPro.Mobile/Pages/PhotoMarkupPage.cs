@@ -63,8 +63,8 @@ public sealed class PhotoMarkupPage : ContentPage
             _graphics.Invalidate();
         };
 
-        var original = Theme.SecondaryButton("Без разметки");
-        original.Clicked += async (_, _) => await FinishAsync(_original);
+        var originalButton = Theme.SecondaryButton("Без разметки");
+        originalButton.Clicked += async (_, _) => await FinishAsync(_original);
 
         var save = Theme.PrimaryButton("Сохранить разметку");
         save.Clicked += async (_, _) =>
@@ -91,7 +91,7 @@ public sealed class PhotoMarkupPage : ContentPage
         };
         tools.Add(undo, 0, 0);
         tools.Add(clear, 1, 0);
-        tools.Add(original, 0, 1);
+        tools.Add(originalButton, 0, 1);
         tools.Add(save, 1, 1);
 
         Content = new ScrollView
@@ -163,7 +163,7 @@ public sealed class PhotoMarkupPage : ContentPage
         if (_drawable.Strokes.Count == 0)
             return _original;
 
-        UIGraphics.BeginImageContextWithOptions(_nativeImage.Size, false, _nativeImage.Scale);
+        UIGraphics.BeginImageContextWithOptions(_nativeImage.Size, false, (nfloat)1.0);
         try
         {
             _nativeImage.Draw(new CGRect(0, 0, _nativeImage.Size.Width, _nativeImage.Size.Height));
@@ -185,7 +185,7 @@ public sealed class PhotoMarkupPage : ContentPage
 
                 foreach (var point in stroke.Skip(1))
                 {
-                    context.AddLineTo(
+                    context.AddLineToPoint(
                         (nfloat)(point.X * (float)_nativeImage.Size.Width),
                         (nfloat)(point.Y * (float)_nativeImage.Size.Height));
                 }

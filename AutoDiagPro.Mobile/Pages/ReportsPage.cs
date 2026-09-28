@@ -276,7 +276,7 @@ public sealed class ReportsPage : ContentPage
                 }
 
                 UIGraphics.EndPDFContext();
-                data.Save(path, true);
+                data.Save(NSUrl.FromFilename(path), true);
             });
 
             await Share.Default.RequestAsync(new ShareFileRequest

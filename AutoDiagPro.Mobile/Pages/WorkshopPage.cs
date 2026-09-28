@@ -253,6 +253,163 @@ public sealed class WorkshopPage : ContentPage
         }, new Thickness(12));
     }
 
+    private View BuildIntakeCard()
+    {
+        var accept = Theme.PrimaryButton("Принять автомобиль");
+        accept.Clicked += async (_, _) => await CreateIntakeAsync();
+
+        var before = Theme.SecondaryButton("Фото ДО");
+        before.Clicked += async (_, _) => await CapturePhotoAsync("Before");
+
+        var after = Theme.SecondaryButton("Фото ПОСЛЕ");
+        after.Clicked += async (_, _) => await CapturePhotoAsync("After");
+
+        var photoGrid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            ColumnSpacing = 8
+        };
+        photoGrid.Add(before, 0, 0);
+        photoGrid.Add(after, 1, 0);
+
+        var numbers = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            ColumnSpacing = 8
+        };
+        numbers.Add(_intakeMileage, 0, 0);
+        numbers.Add(_intakeFuel, 1, 0);
+
+        return Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 9,
+            Children =
+            {
+                Theme.Eyebrow("ПРИЁМКА АВТО"),
+                Theme.H2("Зафиксировать состояние"),
+                Theme.MutedText("Пробег, топливо, жалоба клиента, повреждения и фото ДО/ПОСЛЕ сохраняются в AutoDiag Cloud."),
+                numbers,
+                _intakeComplaint,
+                _intakeDamage,
+                accept,
+                photoGrid,
+                _intakeStatus
+            }
+        }, new Thickness(14), 18);
+    }
+
+    private async Task CreateIntakeAsync()
+    {
+        var vehicle = _state.SelectedVehicle;
+        if (vehicle is null)
+        {
+            await DisplayAlert("Приёмка", "Сначала выберите автомобиль через поиск или раздел «Авто».", "OK");
+            return;
+        }
+
+        long? mileage = long.TryParse(_intakeMileage.Text, out var mileageValue) ? mileageValue : vehicle.MileageKm;
+        int? fuel = int.TryParse(_intakeFuel.Text, out var fuelValue) ? Math.Clamp(fuelValue, 0, 100) : null;
+        var complaint = _intakeComplaint.Text?.Trim() ?? "";
+        var damage = _intakeDamage.Text?.Trim() ?? "";
+
+        _intakeStatus.Text = "Создаю приёмку...";
+        _intakeStatus.TextColor = Theme.Accent;
+
+        try
+        {
+            var title = string.IsNullOrWhiteSpace(complaint) ? "Приёмка автомобиля" : complaint;
+            var workOrderId = await _api.CreateWorkOrderAsync(vehicle.Id, title);
+            await _api.CreateIntakeAsync(vehicle.Id, workOrderId, mileage, fuel, complaint, damage);
+
+            _intakeStatus.Text = "Автомобиль принят • заказ-наряд создан.";
+            _intakeStatus.TextColor = Theme.Green;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _intakeStatus.Text = "Ошибка приёмки: " + ex.Message;
+            _intakeStatus.TextColor = Theme.Red;
+        }
+    }
+
+    private async Task CapturePhotoAsync(string kind)
+    {
+        var vehicle = _state.SelectedVehicle;
+        if (vehicle is null)
+        {
+            await DisplayAlert("Фото", "Сначала выберите автомобиль.", "OK");
+            return;
+        }
+
+        try
+        {
+            FileResult? file;
+            try
+            {
+                file = await MediaPicker.Default.CapturePhotoAsync(new MediaPickerOptions
+                {
+                    Title = kind == "Before" ? "Фото до ремонта" : "Фото после ремонта"
+                });
+            }
+            catch
+            {
+                file = await MediaPicker.Default.PickPhotoAsync(new MediaPickerOptions
+                {
+                    Title = kind == "Before" ? "Фото до ремонта" : "Фото после ремонта"
+                });
+            }
+
+            if (file is null) return;
+
+            await using var stream = await file.OpenReadAsync();
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            var bytes = memory.ToArray();
+            if (bytes.Length > 15 * 1024 * 1024)
+            {
+                await DisplayAlert("Фото", "Фото больше 15 МБ. Выберите снимок меньшего размера.", "OK");
+                return;
+            }
+
+            var order = (await _api.GetWorkOrdersAsync())
+                .Where(x => x.VehicleId == vehicle.Id)
+                .OrderByDescending(x => x.UpdatedAt)
+                .FirstOrDefault();
+
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var mime = ext switch
+            {
+                ".png" => "image/png",
+                ".webp" => "image/webp",
+                _ => "image/jpeg"
+            };
+
+            await _api.UploadPhotoAsync(
+                vehicle.Id,
+                order?.Id,
+                kind,
+                kind == "Before" ? "Фото до ремонта" : "Фото после ремонта",
+                mime,
+                bytes);
+
+            _intakeStatus.Text = kind == "Before" ? "Фото ДО загружено." : "Фото ПОСЛЕ загружено.";
+            _intakeStatus.TextColor = Theme.Green;
+        }
+        catch (Exception ex)
+        {
+            _intakeStatus.Text = "Фото: " + ex.Message;
+            _intakeStatus.TextColor = Theme.Red;
+        }
+    }
+
     private View BuildModules()
     {
         var grid = new Grid

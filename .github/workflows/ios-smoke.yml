@@ -122,7 +122,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: AutoDiagPro-iOS-v3.2.0-client-ui-smoke
+          name: AutoDiagPro-iOS-v3.3.0-client-ui-smoke
           path: |
             screenshot.png
             launch.txt

@@ -217,6 +217,8 @@ public sealed class VehiclesPage : ContentPage
         grid.Add(ActionButton("Детали по VIN", "parts"), 1, 0);
         grid.Add(ActionButton("Пробег / OBD", "mileage"), 0, 1);
         grid.Add(ActionButton("Шины / колодки", "wear"), 1, 1);
+        grid.Add(ActionButton("VIN / комплектация", "vininfo"), 0, 2);
+        grid.Add(ActionButton("Отчёт / сравнение", "reports"), 1, 2);
 
         return new VerticalStackLayout
         {
@@ -241,9 +243,53 @@ public sealed class VehiclesPage : ContentPage
                 await DisplayAlert("AutoDiag Pro", "Сначала выберите автомобиль.", "OK");
                 return;
             }
+            if (route == "vininfo")
+            {
+                await ShowVinInfoAsync();
+                return;
+            }
+
             await Shell.Current.GoToAsync(route);
         };
         return button;
+    }
+
+    private async Task ShowVinInfoAsync()
+    {
+        var vehicle = _state.SelectedVehicle;
+        if (vehicle is null || string.IsNullOrWhiteSpace(vehicle.Vin))
+        {
+            await DisplayAlert("VIN", "Для автомобиля не указан VIN.", "OK");
+            return;
+        }
+
+        try
+        {
+            var data = await _api.DecodeVinAsync(vehicle.Vin);
+            string V(string name) =>
+                data.TryGetProperty(name, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? value.GetString() ?? "—"
+                    : "—";
+
+            var text =
+                $"VIN: {V("vin")}\n" +
+                $"Марка: {V("make")}\n" +
+                $"Модель: {V("model")}\n" +
+                $"Год: {V("modelYear")}\n" +
+                $"Тип: {V("vehicleType")}\n" +
+                $"Кузов: {V("bodyClass")}\n" +
+                $"Двигатель: {V("engine")}\n" +
+                $"Объём: {V("displacementL")} л\n" +
+                $"Топливо: {V("fuelType")}\n" +
+                $"Коробка: {V("transmission")}\n" +
+                $"Привод: {V("driveType")}";
+
+            await DisplayAlert("Данные по VIN", text, "OK");
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("VIN", ex.Message, "OK");
+        }
     }
 
     private async Task LoadAsync()

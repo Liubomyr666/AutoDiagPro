@@ -15,14 +15,15 @@ public sealed class WearPage : ContentPage
     private readonly Entry _pr = Field("Колодки зад, мм");
     private readonly Editor _notes = new()
     {
-        Placeholder = "Заметки",
+        Placeholder = "Заметки / что проверить",
         MinimumHeightRequest = 80,
         AutoSize = EditorAutoSizeOption.TextChanges,
         BackgroundColor = Theme.Surface,
         TextColor = Theme.Text,
         PlaceholderColor = Theme.Muted
     };
-    private readonly Label _status = Theme.MutedText("Введите фактические замеры.");
+    private readonly Label _status = Theme.MutedText("Загрузка...");
+    private readonly VerticalStackLayout _summary = new() { Spacing = 8 };
     private readonly VerticalStackLayout _history = new() { Spacing = 9 };
 
     public WearPage()
@@ -31,8 +32,20 @@ public sealed class WearPage : ContentPage
         Shell.SetNavBarIsVisible(this, true);
         Title = "Шины / колодки";
 
-        var save = Theme.PrimaryButton("Сохранить замер в облако");
+        var save = Theme.PrimaryButton("Сохранить фактический замер");
         save.Clicked += async (_, _) => await SaveAsync();
+
+        var inputCard = Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 9,
+            Children =
+            {
+                Theme.Eyebrow("НОВЫЙ ЗАМЕР"),
+                Theme.MutedText("Заполняйте только то, что реально измерено."),
+                _tf, _tr, _pf, _pr, _notes, save
+            }
+        });
+        inputCard.IsVisible = AccessPolicy.IsStaff;
 
         Content = new ScrollView
         {
@@ -42,14 +55,13 @@ public sealed class WearPage : ContentPage
                 Spacing = 14,
                 Children =
                 {
-                    Theme.Eyebrow("WEAR CHECK • CLOUD"),
+                    Theme.Eyebrow("WEAR CHECK • AUTODIAG CLOUD"),
                     Theme.H1("Шины / колодки"),
-                    Theme.MutedText("Замеры синхронизируются через AutoDiag Cloud и доступны на других устройствах."),
-                    Theme.CardView(new VerticalStackLayout
-                    {
-                        Spacing = 9,
-                        Children = { _tf, _tr, _pf, _pr, _notes, save }
-                    }),
+                    Theme.MutedText(AccessPolicy.IsStaff
+                        ? "Фактические замеры синхронизируются с Windows и iPhone."
+                        : "Здесь отображаются фактические замеры, сделанные сотрудником СТО."),
+                    Theme.CardView(_summary),
+                    inputCard,
                     _status,
                     Theme.H2("История замеров"),
                     _history
@@ -66,6 +78,12 @@ public sealed class WearPage : ContentPage
 
     private async Task SaveAsync()
     {
+        if (!AccessPolicy.IsStaff)
+        {
+            SetStatus("Добавлять фактические замеры может только сотрудник СТО.", Theme.Accent);
+            return;
+        }
+
         var v = _state.SelectedVehicle;
         if (v is null)
         {
@@ -77,9 +95,16 @@ public sealed class WearPage : ContentPage
         var tr = Parse(_tr.Text);
         var pf = Parse(_pf.Text);
         var pr = Parse(_pr.Text);
+
         if (tf is null && tr is null && pf is null && pr is null)
         {
             SetStatus("Введите хотя бы один фактический замер.", Theme.Accent);
+            return;
+        }
+
+        if (!ValidTire(tf) || !ValidTire(tr) || !ValidPad(pf) || !ValidPad(pr))
+        {
+            SetStatus("Проверьте значения: протектор 0–30 мм, колодки 0–40 мм.", Theme.Red);
             return;
         }
 
@@ -90,8 +115,8 @@ public sealed class WearPage : ContentPage
 
             _tf.Text = _tr.Text = _pf.Text = _pr.Text = "";
             _notes.Text = "";
-            SetStatus("Замер сохранён и синхронизирован.", Theme.Green);
             await LoadAsync();
+            SetStatus("Замер сохранён • Windows и iPhone синхронизированы.", Theme.Green);
         }
         catch (Exception ex)
         {
@@ -102,11 +127,13 @@ public sealed class WearPage : ContentPage
     private async Task LoadAsync()
     {
         _history.Clear();
+        _summary.Clear();
+
         var v = _state.SelectedVehicle;
         if (v is null)
         {
+            _summary.Add(Theme.MutedText("Автомобиль не выбран."));
             SetStatus("Сначала выберите автомобиль.", Theme.Accent);
-            _history.Add(Theme.CardView(Theme.MutedText("Автомобиль не выбран.")));
             return;
         }
 
@@ -117,19 +144,57 @@ public sealed class WearPage : ContentPage
                 .Take(30)
                 .ToList();
 
+            RenderSummary(v, list.FirstOrDefault());
+
             foreach (var x in list)
                 _history.Add(Card(x));
 
             if (list.Count == 0)
-                _history.Add(Theme.CardView(Theme.MutedText("Замеров пока нет.")));
+                _history.Add(Theme.CardView(Theme.MutedText("Фактических замеров пока нет.")));
 
-            SetStatus($"{v.DisplayName} • облачных замеров: {list.Count}", Theme.Green);
+            SetStatus($"{v.DisplayName} • замеров в облаке: {list.Count}", Theme.Green);
         }
         catch (Exception ex)
         {
+            _summary.Add(Theme.MutedText("Не удалось получить текущий износ."));
             SetStatus("Синхронизация: " + ex.Message, Theme.Red);
             _history.Add(Theme.CardView(Theme.MutedText("Не удалось загрузить историю.")));
         }
+    }
+
+    private void RenderSummary(ServerVehicleRecord vehicle, ServerWearCheckRecord? latest)
+    {
+        _summary.Add(Theme.Eyebrow("ТЕКУЩЕЕ СОСТОЯНИЕ"));
+        _summary.Add(new Label
+        {
+            Text = vehicle.DisplayName,
+            FontSize = 16,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = Theme.Text,
+            FontAutoScalingEnabled = false
+        });
+
+        if (latest is null)
+        {
+            _summary.Add(Theme.MutedText("Нет фактических замеров."));
+            return;
+        }
+
+        var tireMin = new[] { latest.TireFrontMm, latest.TireRearMm }
+            .Where(x => x.HasValue).Select(x => x!.Value).DefaultIfEmpty(double.NaN).Min();
+        var padMin = new[] { latest.PadFrontMm, latest.PadRearMm }
+            .Where(x => x.HasValue).Select(x => x!.Value).DefaultIfEmpty(double.NaN).Min();
+
+        var attention = (!double.IsNaN(tireMin) && tireMin < 2.0) ||
+                        (!double.IsNaN(padMin) && padMin < 3.0);
+
+        _summary.Add(Theme.Pill(attention ? "ТРЕБУЕТ ПРОВЕРКИ" : "ПОСЛЕДНИЙ ЗАМЕР OK",
+            attention ? Theme.Accent : Theme.Green));
+        _summary.Add(Theme.MutedText(
+            $"Шины: перед {Fmt(latest.TireFrontMm)} / зад {Fmt(latest.TireRearMm)} мм"));
+        _summary.Add(Theme.MutedText(
+            $"Колодки: перед {Fmt(latest.PadFrontMm)} / зад {Fmt(latest.PadRearMm)} мм"));
+        _summary.Add(Theme.MutedText($"Обновлено • {latest.CheckedAt.LocalDateTime:dd.MM.yyyy HH:mm}"));
     }
 
     private static View Card(ServerWearCheckRecord x)
@@ -151,12 +216,13 @@ public sealed class WearPage : ContentPage
                 {
                     Text = x.CheckedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm"),
                     FontAttributes = FontAttributes.Bold,
-                    TextColor = Theme.Text
+                    TextColor = Theme.Text,
+                    FontAutoScalingEnabled = false
                 },
                 Theme.MutedText($"Шины: перед {Fmt(x.TireFrontMm)} / зад {Fmt(x.TireRearMm)} мм"),
                 Theme.MutedText($"Колодки: перед {Fmt(x.PadFrontMm)} / зад {Fmt(x.PadRearMm)} мм"),
                 string.IsNullOrWhiteSpace(x.Notes) ? Theme.MutedText("Без заметок") : Theme.Body(x.Notes),
-                Theme.Pill(attention ? "ТРЕБУЕТ ПРОВЕРКИ" : "OK", attention ? Theme.Accent : Theme.Green)
+                Theme.Pill(attention ? "ПРОВЕРИТЬ" : "OK", attention ? Theme.Accent : Theme.Green)
             }
         }, new Thickness(13));
     }
@@ -174,6 +240,9 @@ public sealed class WearPage : ContentPage
             ? value
             : null;
     }
+
+    private static bool ValidTire(double? value) => value is null || value <= 30;
+    private static bool ValidPad(double? value) => value is null || value <= 40;
 
     private static string Fmt(double? value) =>
         value is null ? "—" : value.Value.ToString("0.0", CultureInfo.InvariantCulture);

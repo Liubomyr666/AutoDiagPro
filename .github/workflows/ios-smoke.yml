@@ -101,6 +101,12 @@ jobs:
                   "xcrun","simctl","spawn",device,"log","show","--style","compact","--last","4m",
                   "--predicate",'process CONTAINS[c] "AutoDiag" OR eventMessage CONTAINS[c] "AutoDiag"'
               ], stdout=open("app-log.txt","w"), stderr=subprocess.STDOUT, text=True, check=False)
+              print("\n=== LAUNCH ===")
+              print(open("launch.txt", errors="ignore").read())
+              print("\n=== APP LOG ===")
+              print(open("app-log.txt", errors="ignore").read())
+              print("\n=== PROCESSES ===")
+              print(open("processes.txt", errors="ignore").read())
               raise SystemExit("AutoDiag Pro did not stay running after launch.")
           PY
 
@@ -110,6 +116,7 @@ jobs:
             --predicate 'process CONTAINS[c] "AutoDiag" OR eventMessage CONTAINS[c] "AutoDiag"' > app-log.txt || true
 
       - name: Upload smoke evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: AutoDiagPro-iOS-v3.0.0-client-ui-smoke

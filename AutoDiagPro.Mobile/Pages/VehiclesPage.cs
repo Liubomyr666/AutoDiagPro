@@ -7,7 +7,6 @@ public sealed class VehiclesPage : ContentPage
 {
     private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
-    private readonly MobileWorkspaceStore _store = AppServices.Get<MobileWorkspaceStore>();
 
     private readonly VerticalStackLayout _vehicleCards = new() { Spacing = 10 };
     private readonly Label _status = Theme.MutedText("Загрузка...");
@@ -53,6 +52,7 @@ public sealed class VehiclesPage : ContentPage
     private View BuildHeader()
     {
         var add = Theme.CompactButton("+ Добавить");
+        add.IsVisible = AccessPolicy.IsStaff;
         add.Clicked += async (_, _) => await Shell.Current.GoToAsync("addvehicle");
 
         var refresh = Theme.CompactButton("Обновить");
@@ -434,20 +434,57 @@ public sealed class VehiclesPage : ContentPage
             x.VehicleId == v.Id &&
             !IsClosed(x.Status)).ToString();
 
-        var db = await _store.LoadAsync();
-        var plan = db.ServicePlans.FirstOrDefault(x => x.VehicleId == v.Id);
-        _nextService.Text = plan?.NextServiceMileageKm is long km
-            ? $"{km:N0} км"
-            : plan?.NextServiceDate is DateTimeOffset date
-                ? date.LocalDateTime.ToString("dd.MM.yyyy")
-                : "Не задано";
+        try
+        {
+            var maintenance = await _api.GetMaintenanceAsync(v.Id);
+            var currentKm = v.MileageKm;
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var next = maintenance
+                .OrderBy(x =>
+                {
+                    if (x.DueMileage is long dueKm && currentKm is long nowKm)
+                        return dueKm - nowKm;
+                    return long.MaxValue;
+                })
+                .ThenBy(x => x.DueDate ?? DateOnly.MaxValue)
+                .FirstOrDefault();
+
+            if (next is null)
+            {
+                _nextService.Text = "Не задано";
+                _nextService.TextColor = Theme.Muted;
+            }
+            else if (next.DueMileage is long dueKm && currentKm is long nowKm)
+            {
+                var left = dueKm - nowKm;
+                _nextService.Text = left <= 0 ? $"Просрочено {Math.Abs(left):N0} км" : $"Через {left:N0} км";
+                _nextService.TextColor = left <= 0 ? Theme.Red : left <= 1000 ? Theme.Accent : Theme.Green;
+            }
+            else if (next.DueDate is DateOnly dueDate)
+            {
+                var days = dueDate.DayNumber - today.DayNumber;
+                _nextService.Text = days < 0 ? $"Просрочено {Math.Abs(days)} дн." : days == 0 ? "Сегодня" : $"Через {days} дн.";
+                _nextService.TextColor = days < 0 ? Theme.Red : days <= 14 ? Theme.Accent : Theme.Green;
+            }
+            else
+            {
+                _nextService.Text = next.Name;
+                _nextService.TextColor = Theme.Text;
+            }
+        }
+        catch
+        {
+            _nextService.Text = "Нет связи";
+            _nextService.TextColor = Theme.Red;
+        }
     }
 
     private static bool IsClosed(string? status) =>
         string.Equals(status, "Выдано", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(status, "Завершено", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(status, "Закрыт", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase);
+        string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase);
 
     private static View Kpi(string title, Label value) =>
         Theme.CardView(new VerticalStackLayout

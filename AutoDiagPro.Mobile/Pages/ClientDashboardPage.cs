@@ -151,10 +151,7 @@ public sealed class ClientDashboardPage : ContentPage
         primary.HeightRequest = 42;
         primary.Clicked += async (_, _) =>
         {
-            if (_state.SelectedVehicle is null)
-                await Shell.Current.GoToAsync("addvehicle");
-            else
-                await Shell.Current.GoToAsync("//vehicles");
+            await Shell.Current.GoToAsync("//vehicles");
         };
 
         var diag = Theme.SecondaryButton("Диагностика");
@@ -379,9 +376,7 @@ public sealed class ClientDashboardPage : ContentPage
 
             _orders.Text = selected is null
                 ? "0"
-                : orders.Count(x => x.VehicleId == selected.Id &&
-                                    !string.Equals(x.Status, "Выдано", StringComparison.OrdinalIgnoreCase))
-                    .ToString();
+                : orders.Count(x => x.VehicleId == selected.Id && !IsClosed(x.Status)).ToString();
 
             _sync.Text = $"Синхронизировано • {DateTime.Now:HH:mm}";
             _sync.TextColor = Theme.Green;
@@ -393,6 +388,16 @@ public sealed class ClientDashboardPage : ContentPage
             _sync.TextColor = Theme.Red;
             _statusDot.BackgroundColor = Theme.Red;
         }
+    }
+
+    private static bool IsClosed(string? status)
+    {
+        var value = (status ?? "").Trim();
+        return value.Equals("Completed", StringComparison.OrdinalIgnoreCase) ||
+               value.Equals("Closed", StringComparison.OrdinalIgnoreCase) ||
+               value.Equals("Завершено", StringComparison.OrdinalIgnoreCase) ||
+               value.Equals("Закрыт", StringComparison.OrdinalIgnoreCase) ||
+               value.Equals("Выдано", StringComparison.OrdinalIgnoreCase);
     }
 
     private static View Kpi(string title, Label value) =>

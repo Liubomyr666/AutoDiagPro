@@ -45,6 +45,18 @@ public sealed class ServicePlannerPage : ContentPage
         var save = Theme.PrimaryButton("Сохранить в AutoDiag Cloud");
         save.Clicked += async (_, _) => await SaveAsync();
 
+        var intervalButtons = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            ColumnSpacing = 8
+        };
+        intervalButtons.Add(quick10, 0, 0);
+        intervalButtons.Add(quick15, 1, 0);
+
         Content = new ScrollView
         {
             Content = new VerticalStackLayout
@@ -64,20 +76,7 @@ public sealed class ServicePlannerPage : ContentPage
                         {
                             Theme.Eyebrow("ИНТЕРВАЛ"),
                             _current,
-                            new Grid
-                            {
-                                ColumnDefinitions =
-                                {
-                                    new ColumnDefinition(GridLength.Star),
-                                    new ColumnDefinition(GridLength.Star)
-                                },
-                                ColumnSpacing = 8,
-                                Children =
-                                {
-                                    { quick10, 0, 0 },
-                                    { quick15, 1, 0 }
-                                }
-                            },
+                            intervalButtons,
                             _nextMileage,
                             new Label { Text = "Дата следующего ТО", TextColor = Theme.Muted, FontSize = 11 },
                             _nextDate

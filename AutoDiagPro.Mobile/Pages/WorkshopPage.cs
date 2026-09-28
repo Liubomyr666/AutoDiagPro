@@ -276,6 +276,24 @@ public sealed class WorkshopPage : ContentPage
         photoGrid.Add(before, 0, 0);
         photoGrid.Add(after, 1, 0);
 
+        var maintenance = Theme.SecondaryButton("Добавить ТО");
+        maintenance.Clicked += async (_, _) => await AddMaintenanceAsync();
+
+        var part = Theme.SecondaryButton("Установить деталь");
+        part.Clicked += async (_, _) => await AddInstalledPartAsync();
+
+        var serviceGrid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            ColumnSpacing = 8
+        };
+        serviceGrid.Add(maintenance, 0, 0);
+        serviceGrid.Add(part, 1, 0);
+
         var numbers = new Grid
         {
             ColumnDefinitions =
@@ -301,6 +319,7 @@ public sealed class WorkshopPage : ContentPage
                 _intakeDamage,
                 accept,
                 photoGrid,
+                serviceGrid,
                 _intakeStatus
             }
         }, new Thickness(14), 18);
@@ -337,6 +356,91 @@ public sealed class WorkshopPage : ContentPage
         {
             _intakeStatus.Text = "Ошибка приёмки: " + ex.Message;
             _intakeStatus.TextColor = Theme.Red;
+        }
+    }
+
+    private async Task AddMaintenanceAsync()
+    {
+        var vehicle = _state.SelectedVehicle;
+        if (vehicle is null)
+        {
+            await DisplayAlert("ТО", "Сначала выберите автомобиль.", "OK");
+            return;
+        }
+
+        var name = await DisplayPromptAsync("План ТО", "Что обслужить? Например: моторное масло", "Далее", "Отмена");
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        var mileageText = await DisplayPromptAsync(
+            "План ТО",
+            "На каком пробеге выполнить? Можно оставить пустым.",
+            "Сохранить",
+            "Без пробега",
+            keyboard: Keyboard.Numeric);
+
+        long? dueMileage = long.TryParse(mileageText, out var mileage) ? mileage : null;
+
+        try
+        {
+            await _api.CreateMaintenanceAsync(
+                vehicle.Id,
+                name.Trim(),
+                dueMileage,
+                null,
+                vehicle.MileageKm,
+                DateTimeOffset.Now,
+                null);
+
+            _intakeStatus.Text = "Пункт ТО добавлен в облачный план.";
+            _intakeStatus.TextColor = Theme.Green;
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("ТО", ex.Message, "OK");
+        }
+    }
+
+    private async Task AddInstalledPartAsync()
+    {
+        var vehicle = _state.SelectedVehicle;
+        if (vehicle is null)
+        {
+            await DisplayAlert("Деталь", "Сначала выберите автомобиль.", "OK");
+            return;
+        }
+
+        var name = await DisplayPromptAsync("Установленная деталь", "Название детали", "Далее", "Отмена");
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        var partNumber = await DisplayPromptAsync("Установленная деталь", "OEM / артикул (необязательно)", "Далее", "Пропустить");
+        var manufacturer = await DisplayPromptAsync("Установленная деталь", "Производитель (необязательно)", "Сохранить", "Пропустить");
+
+        try
+        {
+            var order = (await _api.GetWorkOrdersAsync())
+                .Where(x => x.VehicleId == vehicle.Id)
+                .OrderByDescending(x => x.UpdatedAt)
+                .FirstOrDefault();
+
+            await _api.AddInstalledPartAsync(
+                vehicle.Id,
+                order?.Id,
+                name.Trim(),
+                string.IsNullOrWhiteSpace(partNumber) ? null : partNumber.Trim(),
+                string.IsNullOrWhiteSpace(manufacturer) ? null : manufacturer.Trim(),
+                null,
+                null,
+                vehicle.MileageKm,
+                DateTimeOffset.Now,
+                null,
+                _api.Session?.DisplayName);
+
+            _intakeStatus.Text = "Деталь добавлена в историю автомобиля.";
+            _intakeStatus.TextColor = Theme.Green;
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Деталь", ex.Message, "OK");
         }
     }
 

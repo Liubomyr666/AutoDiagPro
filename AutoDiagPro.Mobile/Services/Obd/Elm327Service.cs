@@ -222,6 +222,38 @@ public sealed class Elm327Service
         return result;
     }
 
+
+    public async Task<Dictionary<string, string>> InjectorSnapshotAsync(CancellationToken ct = default)
+    {
+        var live = await LiveSnapshotAsync(ct);
+        var result = new Dictionary<string, string>();
+
+        var keys = new[]
+        {
+            "Давление топлива",
+            "STFT Bank 1",
+            "LTFT Bank 1",
+            "MAF",
+            "MAP",
+            "RPM",
+            "Нагрузка",
+            "Расход топлива",
+            "Уровень топлива",
+            "Температура впуска",
+            "Температура масла",
+            "Напряжение ECU"
+        };
+
+        foreach (var key in keys)
+            if (live.TryGetValue(key, out var value))
+                result[key] = value;
+
+        if (result.Count == 0)
+            result["Статус"] = "Стандартные OBD-II параметры топливной системы недоступны. Для коррекций форсунок по цилиндрам нужен марочный протокол.";
+
+        return result;
+    }
+
     private async Task AddPidAsync(
         Dictionary<string, string> target,
         string label,

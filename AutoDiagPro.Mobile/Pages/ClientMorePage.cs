@@ -35,7 +35,7 @@ public sealed class ClientMorePage : ContentPage
                     Theme.H2("Приложение"),
                     Row("Настройки", "Регион деталей и параметры", "tab_settings.png", "settings"),
                     logout,
-                    Theme.MutedText("AutoDiag Pro iOS • 3.0.0")
+                    Theme.MutedText($"AutoDiag Pro iOS • {AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})")
                 }
             }
         };

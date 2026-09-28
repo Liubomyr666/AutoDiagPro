@@ -483,26 +483,53 @@ public sealed class WorkshopPage : ContentPage
                 return;
             }
 
+            var uploadBytes = bytes;
+            var marked = false;
+            var action = await DisplayActionSheet(
+                "Фото повреждений",
+                "Отмена",
+                null,
+                "Разметить повреждения",
+                "Загрузить без разметки");
+
+            if (string.IsNullOrWhiteSpace(action) || action == "Отмена")
+                return;
+
+            if (action == "Разметить повреждения")
+            {
+                var markup = new PhotoMarkupPage(bytes);
+                await Navigation.PushModalAsync(new NavigationPage(markup));
+                var edited = await markup.Completion;
+                if (edited is null) return;
+                uploadBytes = edited;
+                marked = true;
+            }
+
             var order = (await _api.GetWorkOrdersAsync())
                 .Where(x => x.VehicleId == vehicle.Id)
                 .OrderByDescending(x => x.UpdatedAt)
                 .FirstOrDefault();
 
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-            var mime = ext switch
-            {
-                ".png" => "image/png",
-                ".webp" => "image/webp",
-                _ => "image/jpeg"
-            };
+            var mime = marked
+                ? "image/jpeg"
+                : ext switch
+                {
+                    ".png" => "image/png",
+                    ".webp" => "image/webp",
+                    _ => "image/jpeg"
+                };
+
+            var note = kind == "Before" ? "Фото до ремонта" : "Фото после ремонта";
+            if (marked) note += " • разметка повреждений";
 
             await _api.UploadPhotoAsync(
                 vehicle.Id,
                 order?.Id,
                 kind,
-                kind == "Before" ? "Фото до ремонта" : "Фото после ремонта",
+                note,
                 mime,
-                bytes);
+                uploadBytes);
 
             _intakeStatus.Text = kind == "Before" ? "Фото ДО загружено." : "Фото ПОСЛЕ загружено.";
             _intakeStatus.TextColor = Theme.Green;

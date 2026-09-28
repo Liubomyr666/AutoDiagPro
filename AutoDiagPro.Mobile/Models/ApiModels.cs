@@ -295,6 +295,30 @@ public sealed class ServerWorkshopVehicleRecord : ServerVehicleRecord
     public string? ClientEmail { get; set; }
 }
 
+
+public sealed class ServerWearCheckRecord
+{
+    public Guid Id { get; set; }
+    public Guid VehicleId { get; set; }
+    public DateTimeOffset CheckedAt { get; set; }
+    public double? TireFrontMm { get; set; }
+    public double? TireRearMm { get; set; }
+    public double? PadFrontMm { get; set; }
+    public double? PadRearMm { get; set; }
+    public string? Notes { get; set; }
+}
+
+public sealed class ServerInventoryRecord
+{
+    public Guid Id { get; set; }
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public int Quantity { get; set; }
+    public Guid? VehicleId { get; set; }
+    public DateTimeOffset? LastReceivedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
 public sealed class CreatedIdResponse
 {
     public Guid Id { get; set; }

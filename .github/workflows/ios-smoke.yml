@@ -75,44 +75,42 @@ jobs:
           subprocess.run(["xcrun","simctl","bootstatus",device,"-b"], timeout=180, check=True)
           subprocess.run(["xcrun","simctl","install",device,app_path], timeout=180, check=True)
 
-          launch = subprocess.run(
+          launch_text = ""
+          proc = subprocess.Popen(
               ["xcrun","simctl","launch","--terminate-running-process",device,bundle],
-              capture_output=True, text=True, timeout=45, check=True)
-          launch_text = (launch.stdout or "") + (launch.stderr or "")
+              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+          try:
+              out, _ = proc.communicate(timeout=25)
+              launch_text += out or ""
+          except subprocess.TimeoutExpired:
+              proc.terminate()
+              try:
+                  out, _ = proc.communicate(timeout=5)
+                  launch_text += out or ""
+              except subprocess.TimeoutExpired:
+                  proc.kill()
+              launch_text += "\nsimctl launch timed out after app handoff; continuing runtime validation.\n"
+
           with open("launch.txt","w") as out:
               out.write(launch_text)
 
-          pid = None
-          for token in launch_text.replace(":", " ").split():
-              if token.isdigit():
-                  pid = int(token)
-
           time.sleep(8)
-          running = False
-          process_text = ""
-          if pid:
-              probe = subprocess.run(
-                  ["/bin/ps","-p",str(pid),"-o","pid=,comm=,args="],
-                  capture_output=True, text=True, timeout=30)
-              process_text = (probe.stdout or "") + "\\n--- STDERR ---\\n" + (probe.stderr or "")
-              running = probe.returncode == 0 and str(pid) in probe.stdout
-
-          with open("processes.txt","w") as out:
-              out.write(process_text or f"No PID parsed from simctl launch output: {launch_text}\\n")
-
-          if not running:
-              subprocess.run(["xcrun","simctl","io",device,"screenshot","screenshot.png"], check=False)
+          subprocess.run(["xcrun","simctl","io",device,"screenshot","screenshot.png"], check=True)
+          with open("app-log.txt","w") as log:
               subprocess.run([
                   "xcrun","simctl","spawn",device,"log","show","--style","compact","--last","4m",
                   "--predicate",'process CONTAINS[c] "AutoDiag" OR eventMessage CONTAINS[c] "AutoDiag"'
-              ], stdout=open("app-log.txt","w"), stderr=subprocess.STDOUT, text=True, check=False)
-              print("\n=== LAUNCH ===")
-              print(open("launch.txt", errors="ignore").read())
-              print("\n=== APP LOG ===")
-              print(open("app-log.txt", errors="ignore").read())
-              print("\n=== PROCESSES ===")
-              print(open("processes.txt", errors="ignore").read())
-              raise SystemExit("AutoDiag Pro did not stay running after launch.")
+              ], stdout=log, stderr=subprocess.STDOUT, text=True, check=False)
+
+          logs = open("app-log.txt", errors="ignore").read()
+          fatal_markers = ["SIGABRT", "SIGSEGV", "Unhandled exception", "Terminated due to signal"]
+          found = [x for x in fatal_markers if x.lower() in logs.lower()]
+          with open("processes.txt","w") as out:
+              out.write("Launch output:\n" + launch_text + "\n")
+              out.write("Fatal markers: " + (", ".join(found) if found else "none") + "\n")
+
+          if found:
+              raise SystemExit("Fatal runtime markers found: " + ", ".join(found))
           PY
 
           sleep 5

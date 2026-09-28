@@ -149,9 +149,13 @@ public sealed class ServicePlannerPage : ContentPage
 
     private void AddInterval(long interval)
     {
-        var current = _state.SelectedVehicle?.MileageKm;
-        if (current is null && !long.TryParse(_current.Text, out var parsed)) return;
-        _nextMileage.Text = ((current ?? parsed) + interval).ToString();
+        long baseMileage;
+        if (_state.SelectedVehicle?.MileageKm is long currentMileage)
+            baseMileage = currentMileage;
+        else if (!long.TryParse(_current.Text, out baseMileage))
+            return;
+
+        _nextMileage.Text = (baseMileage + interval).ToString();
     }
 
     private async Task SaveAsync()

@@ -1,4 +1,8 @@
 using AutoDiagPro.Mobile.Services;
+using System.Net;
+using CoreGraphics;
+using Foundation;
+using UIKit;
 
 namespace AutoDiagPro.Mobile.Pages;
 
@@ -37,6 +41,9 @@ public sealed class ReportsPage : ContentPage
             });
         };
 
+        var pdf = Theme.PrimaryButton("Экспорт PDF");
+        pdf.Clicked += async (_, _) => await ExportPdfAsync();
+
         Content = new ScrollView
         {
             Content = new VerticalStackLayout
@@ -48,7 +55,7 @@ public sealed class ReportsPage : ContentPage
                     Theme.Eyebrow("REPORT CENTER"),
                     Theme.H1("Отчёт по автомобилю"),
                     Theme.MutedText(AccessPolicy.IsClient ? "Диагностика, DTC, работы на СТО и сервисный план выбранного автомобиля." : "История scan, DTC, заказ-наряды, Repair Brain и сервисный план в одном отчёте."),
-                    refresh, share, _status,
+                    refresh, share, pdf, _status,
                     Theme.CardView(_report)
                 }
             }

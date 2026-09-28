@@ -55,6 +55,12 @@ public sealed class AddVehiclePage : ContentPage
         };
     }
 
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await AccessPolicy.RequireStaffAsync(this);
+    }
+
     private async Task SaveAsync()
     {
         if (string.IsNullOrWhiteSpace(_vin.Text) && string.IsNullOrWhiteSpace(_make.Text) && string.IsNullOrWhiteSpace(_model.Text))

@@ -27,7 +27,7 @@ public sealed class MorePage : ContentPage
                         Children =
                         {
                             Theme.Pill(AccessPolicy.FriendlyRole, Theme.Green),
-                            Theme.Body("Структура синхронизирована с AutoDiag Pro Windows v5.0.0. Открываются только реальные мобильные экраны — без пустых заглушек.")
+                            Theme.Body("Структура синхронизирована с AutoDiag Pro Windows v5.2.0. Открываются только реальные мобильные экраны — без пустых заглушек.")
                         }
                     }),
                     BuildGroup("ДИАГНОСТИКА", new[]
@@ -49,7 +49,7 @@ public sealed class MorePage : ContentPage
                         Item("Сервис / ТО", "Интервалы и напоминания", "service"),
                         Item("Шины / колодки", "Замеры износа и история", "wear"),
                         Item("Детали по VIN", "Оригинал, аналоги и совместимость", "parts"),
-                        Item("История диагностики", "Все сохранённые scan", "history"),
+                        Item("История автомобиля", "Диагностика • ремонт • ТО • детали • счета", "history"),
                         Item("Отчёты / PDF", "Сервисный отчёт и сравнение", "reports")
                     }),
                     BuildGroup("ПРОГРАММИРОВАНИЕ", new[]

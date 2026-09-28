@@ -199,6 +199,12 @@ public sealed class DiagnosticsPage : ContentPage
         var ecu = DarkButton("Данные блоков управления");
         ecu.Clicked += async (_, _) => await Shell.Current.GoToAsync("ecu");
 
+        var injectors = DarkButton("Форсунки / топливо");
+        injectors.Clicked += async (_, _) => await Shell.Current.GoToAsync("injectors");
+
+        var diesel = DarkButton("Дизель / Fuel Live");
+        diesel.Clicked += async (_, _) => await Shell.Current.GoToAsync("diesel");
+
         var repair = DarkButton("Repair Brain");
         repair.Clicked += async (_, _) => await Shell.Current.GoToAsync("repair");
 
@@ -226,6 +232,8 @@ public sealed class DiagnosticsPage : ContentPage
 
         if (AccessPolicy.IsStaff)
         {
+            actions.Children.Add(injectors);
+            actions.Children.Add(diesel);
             actions.Children.Add(repair);
             actions.Children.Add(clear);
         }

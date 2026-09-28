@@ -1,10 +1,11 @@
+using AutoDiagPro.Mobile.Models;
 using AutoDiagPro.Mobile.Services;
 
 namespace AutoDiagPro.Mobile.Pages;
 
 public sealed class InventoryPage : ContentPage
 {
-    private readonly MobileWorkspaceStore _store = AppServices.Get<MobileWorkspaceStore>();
+    private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
     private readonly VerticalStackLayout _list = new() { Spacing = 9 };
     private readonly Label _status = Theme.MutedText("Склад загружается...");
@@ -18,18 +19,29 @@ public sealed class InventoryPage : ContentPage
         var scan = Theme.PrimaryButton("Принять по QR / штрихкоду");
         scan.Clicked += async (_, _) => await Shell.Current.GoToAsync("qrparts");
 
+        var refresh = Theme.SecondaryButton("Обновить склад");
+        refresh.Clicked += async (_, _) => await LoadAsync();
+
         Content = new ScrollView
         {
             Content = new VerticalStackLayout
             {
-                Padding = new Thickness(16, 18, 16, 34),
+                Padding = new Thickness(16, 18, 16, 40),
                 Spacing = 14,
                 Children =
                 {
-                    Theme.Eyebrow("INVENTORY"),
+                    Theme.Eyebrow("INVENTORY • CLOUD"),
                     Theme.H1("Склад запчастей"),
-                    Theme.MutedText("Поступления с QR-приёмки группируются по коду. Можно скорректировать остаток прямо на iPhone."),
-                    scan,
+                    Theme.MutedText("Общий облачный склад AutoDiag Pro. QR-приёмка и остатки больше не хранятся только на этом iPhone."),
+                    new Grid
+                    {
+                        ColumnDefinitions =
+                        {
+                            new ColumnDefinition(GridLength.Star),
+                            new ColumnDefinition(GridLength.Star)
+                        },
+                        ColumnSpacing = 8
+                    }.WithChildren(scan, refresh),
                     _status,
                     _list
                 }
@@ -47,92 +59,97 @@ public sealed class InventoryPage : ContentPage
     private async Task LoadAsync()
     {
         _list.Clear();
-        var db = await _store.LoadAsync();
-
-        var groups = db.ReceivedParts
-            .GroupBy(x => string.IsNullOrWhiteSpace(x.Code) ? x.Name : x.Code, StringComparer.OrdinalIgnoreCase)
-            .Select(g => new
-            {
-                Key = g.Key,
-                Name = g.OrderByDescending(x => x.ReceivedAt).First().Name,
-                Quantity = g.Sum(x => x.Quantity),
-                VehicleId = g.OrderByDescending(x => x.ReceivedAt).First().VehicleId,
-                Last = g.Max(x => x.ReceivedAt)
-            })
-            .OrderBy(x => x.Name)
-            .ToList();
-
-        _status.Text = $"Позиций: {groups.Count} • единиц: {groups.Sum(x => x.Quantity)}";
-        _status.TextColor = Theme.Green;
-
-        if (groups.Count == 0)
+        try
         {
-            _list.Add(Theme.CardView(Theme.MutedText("Склад пуст. Используйте QR-приёмку или добавьте деталь там вручную.")));
-            return;
+            var items = (await _api.GetInventoryAsync())
+                .OrderBy(x => x.Name)
+                .ThenBy(x => x.Code)
+                .ToList();
+
+            _status.Text = $"Облако • позиций {items.Count} • единиц {items.Sum(x => x.Quantity)}";
+            _status.TextColor = Theme.Green;
+
+            if (items.Count == 0)
+            {
+                _list.Add(Theme.CardView(Theme.MutedText("Склад пуст. Примите первую деталь через QR.")));
+                return;
+            }
+
+            foreach (var item in items)
+                _list.Add(Card(item));
         }
-
-        foreach (var item in groups)
+        catch (Exception ex)
         {
-            var minus = Theme.CompactButton("−1");
-            minus.Clicked += async (_, _) => await AdjustAsync(item.Key, -1);
-
-            var plus = Theme.CompactButton("+1");
-            plus.Clicked += async (_, _) => await AdjustAsync(item.Key, 1);
-
-            var vehicle = _state.Vehicles.FirstOrDefault(x => x.Id == item.VehicleId)?.DisplayName ?? "Общий склад";
-
-            _list.Add(Theme.CardView(new VerticalStackLayout
-            {
-                Spacing = 6,
-                Children =
-                {
-                    new Grid
-                    {
-                        ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
-                        ColumnSpacing = 10
-                    }.WithChildren(
-                        new Label { Text = item.Name, FontSize = 15, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
-                        new Label { Text = item.Quantity.ToString(), FontSize = 20, FontAttributes = FontAttributes.Bold, TextColor = Theme.Accent }
-                    ),
-                    Theme.MutedText(item.Key),
-                    Theme.MutedText($"{vehicle} • последнее поступление {item.Last.LocalDateTime:dd.MM HH:mm}"),
-                    new HorizontalStackLayout { Spacing = 8, Children = { minus, plus } }
-                }
-            }, new Thickness(13)));
+            _status.Text = "Не удалось загрузить склад: " + ex.Message;
+            _status.TextColor = Theme.Red;
+            _list.Add(Theme.CardView(Theme.MutedText("Проверьте подключение к AutoDiag Cloud.")));
         }
     }
 
-    private async Task AdjustAsync(string key, int delta)
+    private View Card(ServerInventoryRecord item)
     {
-        var db = await _store.LoadAsync();
-        var matches = db.ReceivedParts
-            .Where(x => string.Equals(string.IsNullOrWhiteSpace(x.Code) ? x.Name : x.Code, key, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(x => x.ReceivedAt)
-            .ToList();
+        var minus = Theme.CompactButton("−1");
+        var plus = Theme.CompactButton("+1");
+        minus.IsEnabled = item.Quantity > 0;
 
-        if (delta > 0)
+        minus.Clicked += async (_, _) => await AdjustAsync(item, -1);
+        plus.Clicked += async (_, _) => await AdjustAsync(item, 1);
+
+        var vehicle = item.VehicleId is Guid id
+            ? _state.Vehicles.FirstOrDefault(x => x.Id == id)?.DisplayName ?? "Привязано к авто"
+            : "Общий склад";
+
+        var grid = new Grid
         {
-            var source = matches.FirstOrDefault();
-            if (source is null) return;
-            db.ReceivedParts.Add(new ReceivedPartMobile
+            ColumnDefinitions =
             {
-                VehicleId = source.VehicleId,
-                Code = source.Code,
-                Name = source.Name,
-                Quantity = 1
-            });
-        }
-        else
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 10
+        };
+        grid.Add(new Label
         {
-            var source = matches.FirstOrDefault(x => x.Quantity > 0);
-            if (source is null) return;
-            source.Quantity -= 1;
-            if (source.Quantity <= 0)
-                db.ReceivedParts.Remove(source);
-        }
+            Text = item.Name,
+            FontSize = 15,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = Theme.Text,
+            LineBreakMode = LineBreakMode.TailTruncation
+        }, 0, 0);
+        grid.Add(new Label
+        {
+            Text = item.Quantity.ToString(),
+            FontSize = 20,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = item.Quantity > 0 ? Theme.Accent : Theme.Red
+        }, 1, 0);
 
-        await _store.SaveAsync(db);
-        await LoadAsync();
+        return Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 6,
+            Children =
+            {
+                grid,
+                Theme.MutedText("Код • " + item.Code),
+                Theme.MutedText(vehicle +
+                    (item.LastReceivedAt is null ? "" : $" • приём {item.LastReceivedAt.Value.LocalDateTime:dd.MM HH:mm}")),
+                new HorizontalStackLayout { Spacing = 8, Children = { minus, plus } }
+            }
+        }, new Thickness(13));
+    }
+
+    private async Task AdjustAsync(ServerInventoryRecord item, int delta)
+    {
+        try
+        {
+            var quantity = Math.Max(0, item.Quantity + delta);
+            await _api.UpdateInventoryQuantityAsync(item.Id, quantity);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Склад", ex.Message, "OK");
+        }
     }
 }
 

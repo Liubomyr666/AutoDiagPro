@@ -61,6 +61,9 @@ public sealed class ServerWorkOrderRecord
     public string Status { get; set; } = "";
     public string Title { get; set; } = "";
     public decimal TotalAmount { get; set; }
+    public string EstimateStatus { get; set; } = "Pending";
+    public string? ClientDecisionNote { get; set; }
+    public DateTimeOffset? ApprovedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -178,6 +181,118 @@ public sealed class ServerTenantCreated
     public string AdminDisplayName { get; set; } = "";
     public string TemporaryPassword { get; set; } = "";
     public int DailyAiLimit { get; set; }
+}
+
+public sealed class ServerServiceIntakeRecord
+{
+    public Guid Id { get; set; }
+    public Guid VehicleId { get; set; }
+    public Guid? WorkOrderId { get; set; }
+    public long? MileageKm { get; set; }
+    public int? FuelPercent { get; set; }
+    public string? Complaint { get; set; }
+    public string? DamageNotes { get; set; }
+    public string Status { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class ServerPhotoRecord
+{
+    public Guid Id { get; set; }
+    public Guid VehicleId { get; set; }
+    public Guid? WorkOrderId { get; set; }
+    public string Kind { get; set; } = "";
+    public string? Caption { get; set; }
+    public string MimeType { get; set; } = "image/jpeg";
+    public int SizeBytes { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class ServerMaintenanceRecord
+{
+    public Guid Id { get; set; }
+    public Guid VehicleId { get; set; }
+    public string Name { get; set; } = "";
+    public long? DueMileage { get; set; }
+    public DateOnly? DueDate { get; set; }
+    public long? LastDoneMileage { get; set; }
+    public DateTimeOffset? LastDoneAt { get; set; }
+    public string? Notes { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class ServerInstalledPartRecord
+{
+    public Guid Id { get; set; }
+    public Guid VehicleId { get; set; }
+    public Guid? WorkOrderId { get; set; }
+    public string Name { get; set; } = "";
+    public string? PartNumber { get; set; }
+    public string? Manufacturer { get; set; }
+    public decimal PurchasePrice { get; set; }
+    public decimal CustomerPrice { get; set; }
+    public long? InstalledMileage { get; set; }
+    public DateTimeOffset InstalledAt { get; set; }
+    public DateOnly? WarrantyUntil { get; set; }
+    public string? MechanicName { get; set; }
+}
+
+public sealed class ServerAppointmentRecord
+{
+    public Guid Id { get; set; }
+    public Guid? VehicleId { get; set; }
+    public string ClientName { get; set; } = "";
+    public DateTimeOffset StartsAt { get; set; }
+    public string Work { get; set; } = "";
+    public string Status { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class ServerInvoiceRecord
+{
+    public Guid Id { get; set; }
+    public Guid? VehicleId { get; set; }
+    public Guid? WorkOrderId { get; set; }
+    public string Number { get; set; } = "";
+    public string? Description { get; set; }
+    public decimal Amount { get; set; }
+    public bool Paid { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class ServerDashboardRecord
+{
+    public long Vehicles { get; set; }
+    public long Clients { get; set; }
+    public long ActiveOrders { get; set; }
+    public long ReadyOrders { get; set; }
+    public long UnpaidInvoices { get; set; }
+    public decimal PaidToday { get; set; }
+}
+
+public sealed class ServerWorkshopSearchResult
+{
+    public List<ServerWorkshopClientRecord> Clients { get; set; } = new();
+    public List<ServerWorkshopVehicleRecord> Vehicles { get; set; } = new();
+}
+
+public sealed class ServerWorkshopClientRecord
+{
+    public Guid Id { get; set; }
+    public string FullName { get; set; } = "";
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public string? Notes { get; set; }
+}
+
+public sealed class ServerWorkshopVehicleRecord : ServerVehicleRecord
+{
+    public string? ClientName { get; set; }
+    public string? ClientPhone { get; set; }
+    public string? ClientEmail { get; set; }
 }
 
 public sealed class CreatedIdResponse

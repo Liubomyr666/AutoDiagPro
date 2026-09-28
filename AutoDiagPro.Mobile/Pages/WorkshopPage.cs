@@ -607,10 +607,7 @@ public sealed class WorkshopPage : ContentPage
                 return;
             }
 
-            _state.PendingModuleTitle = title;
-            _state.PendingModuleSubtitle = "Управление СТО";
-            _state.PendingModuleBody = $"{subtitle}. Раздел синхронизирован с общей архитектурой AutoDiag Pro. Функции, для которых серверный API уже доступен, работают напрямую; остальные данные сохраняются в мобильном workspace.";
-            await Shell.Current.GoToAsync("module");
+            await DisplayAlert("СТО", "Раздел недоступен в текущей мобильной сборке.", "OK");
         };
 
         var card = Theme.CardView(new VerticalStackLayout

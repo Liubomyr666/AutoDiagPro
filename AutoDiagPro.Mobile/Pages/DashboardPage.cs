@@ -11,6 +11,10 @@ public sealed class DashboardPage : ContentPage
     private readonly Label _dtc = ValueLabel();
     private readonly Label _lastScan = ValueLabel();
     private readonly Label _orders = ValueLabel();
+    private readonly Label _shopActive = ValueLabel();
+    private readonly Label _shopReady = ValueLabel();
+    private readonly Label _shopUnpaid = ValueLabel();
+    private readonly Label _shopRevenue = ValueLabel();
     private readonly Label _sync = Theme.MutedText("Синхронизация...");
 
     public DashboardPage()
@@ -28,6 +32,7 @@ public sealed class DashboardPage : ContentPage
                     BuildTopBar(),
                     BuildHero(),
                     BuildKpis(),
+                    BuildWorkshopKpis(),
                     BuildQuickActions(),
                     BuildWorkspace()
                 }
@@ -121,6 +126,39 @@ public sealed class DashboardPage : ContentPage
         new VerticalStackLayout { Spacing = 7, Children = { Theme.Eyebrow(title), value } },
         new Thickness(14));
 
+    private View BuildWorkshopKpis()
+    {
+        var grid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            RowDefinitions =
+            {
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 10,
+            RowSpacing = 10
+        };
+        grid.Add(Kpi("В РАБОТЕ", _shopActive), 0, 0);
+        grid.Add(Kpi("ГОТОВО К ВЫДАЧЕ", _shopReady), 1, 0);
+        grid.Add(Kpi("НЕОПЛАЧЕНО", _shopUnpaid), 0, 1);
+        grid.Add(Kpi("ВЫРУЧКА СЕГОДНЯ", _shopRevenue), 1, 1);
+
+        return new VerticalStackLayout
+        {
+            Spacing = 9,
+            Children =
+            {
+                Theme.H2("СТО сегодня"),
+                grid
+            }
+        };
+    }
+
     private View BuildQuickActions()
     {
         var grid = new Grid
@@ -181,9 +219,16 @@ public sealed class DashboardPage : ContentPage
     {
         try
         {
-            var vehicles = await _api.GetVehiclesAsync();
-            var scans = await _api.GetScansAsync();
-            var orders = await _api.GetWorkOrdersAsync();
+            var vehiclesTask = _api.GetVehiclesAsync();
+            var scansTask = _api.GetScansAsync();
+            var ordersTask = _api.GetWorkOrdersAsync();
+            var dashboardTask = _api.GetDashboardAsync();
+            await Task.WhenAll(vehiclesTask, scansTask, ordersTask, dashboardTask);
+
+            var vehicles = await vehiclesTask;
+            var scans = await scansTask;
+            var orders = await ordersTask;
+            var dashboard = await dashboardTask;
             _state.Vehicles = vehicles;
             _state.SelectedVehicle ??= vehicles.FirstOrDefault();
             _state.LastSyncUtc = DateTimeOffset.UtcNow;
@@ -205,6 +250,13 @@ public sealed class DashboardPage : ContentPage
                 ? orders.Count(x => !string.Equals(x.Status, "Выдано", StringComparison.OrdinalIgnoreCase))
                 : orders.Count(x => x.VehicleId == selected.Id && !string.Equals(x.Status, "Выдано", StringComparison.OrdinalIgnoreCase));
             _orders.Text = activeOrders.ToString();
+
+            _shopActive.Text = dashboard.ActiveOrders.ToString();
+            _shopReady.Text = dashboard.ReadyOrders.ToString();
+            _shopUnpaid.Text = dashboard.UnpaidInvoices.ToString();
+            _shopRevenue.Text = dashboard.PaidToday > 0 ? $"{dashboard.PaidToday:N2} €" : "0 €";
+            _shopReady.TextColor = dashboard.ReadyOrders > 0 ? Theme.Green : Theme.Text;
+            _shopUnpaid.TextColor = dashboard.UnpaidInvoices > 0 ? Theme.Accent : Theme.Green;
 
             _sync.Text = $"ONLINE • синхронизировано {DateTime.Now:HH:mm}";
             _sync.TextColor = Theme.Green;

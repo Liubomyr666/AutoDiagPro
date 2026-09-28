@@ -9,8 +9,8 @@
     <Nullable>enable</Nullable>
     <ApplicationTitle>AutoDiag Pro</ApplicationTitle>
     <ApplicationId>com.autodiagpro.app</ApplicationId>
-    <ApplicationDisplayVersion>2.5.0</ApplicationDisplayVersion>
-    <ApplicationVersion>19</ApplicationVersion>
+    <ApplicationDisplayVersion>3.0.0</ApplicationDisplayVersion>
+    <ApplicationVersion>20</ApplicationVersion>
     <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
@@ -26,7 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <MauiIcon Include="Resources\AppIcon\appicon.svg" Color="#0B0F12" />
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#090C0E" BaseSize="1024,1024" />
     <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#090C0E" BaseSize="256,256" />
     <MauiImage Include="Resources\Images\*" />
     <MauiImage Update="Resources\Images\tab_*.svg" BaseSize="24,24" />

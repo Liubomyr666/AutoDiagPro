@@ -4,6 +4,7 @@ namespace AutoDiagPro.Mobile.Pages;
 
 public sealed class WorkshopManagerPage : ContentPage
 {
+    private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileWorkspaceStore _store = AppServices.Get<MobileWorkspaceStore>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
     private readonly VerticalStackLayout _body = new() { Spacing = 12 };

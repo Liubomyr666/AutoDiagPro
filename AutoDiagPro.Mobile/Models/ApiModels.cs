@@ -22,7 +22,7 @@ public sealed class ServerHealth
     public DateTimeOffset Utc { get; set; }
 }
 
-public sealed class ServerVehicleRecord
+public class ServerVehicleRecord
 {
     public Guid Id { get; set; }
     public Guid? ClientId { get; set; }

@@ -552,16 +552,28 @@ public sealed class Elm327Service
         return result;
     }
 
-    public async Task<List<string>> DtcAsync(CancellationToken ct = default)
+    public Task<List<string>> DtcAsync(CancellationToken ct = default) =>
+        ReadDtcModeAsync("03", "43", ct);
+
+    public Task<List<string>> PendingDtcAsync(CancellationToken ct = default) =>
+        ReadDtcModeAsync("07", "47", ct);
+
+    public Task<List<string>> PermanentDtcAsync(CancellationToken ct = default) =>
+        ReadDtcModeAsync("0A", "4A", ct);
+
+    private async Task<List<string>> ReadDtcModeAsync(
+        string command,
+        string positivePrefix,
+        CancellationToken ct)
     {
-        var raw = await CommandAsync("03", 2200, ct);
+        var raw = await CommandAsync(command, 2200, ct);
         if (raw.Contains("NO DATA", StringComparison.OrdinalIgnoreCase)) return new();
 
         var hex = HexOnly(raw);
-        var marker = hex.IndexOf("43", StringComparison.Ordinal);
+        var marker = hex.IndexOf(positivePrefix, StringComparison.Ordinal);
         if (marker < 0) return new();
 
-        var data = hex[(marker + 2)..];
+        var data = hex[(marker + positivePrefix.Length)..];
         var result = new List<string>();
         for (var i = 0; i + 3 < data.Length; i += 4)
         {
@@ -598,10 +610,40 @@ public sealed class Elm327Service
         var b = B(data, 2);
         var c = B(data, 4);
         var d = B(data, 6);
+        var compressionIgnition = (b & 0x08) != 0;
 
         result["MIL"] = (a & 0x80) != 0 ? "Включён" : "Выключен";
         result["DTC сохранено"] = (a & 0x7F).ToString(CultureInfo.InvariantCulture);
-        result["Тип двигателя"] = (b & 0x08) != 0 ? "Дизель" : "Бензин";
+        result["Тип двигателя"] = compressionIgnition ? "Дизель / compression ignition" : "Бензин / spark ignition";
+
+        static void AddMonitor(
+            Dictionary<string, string> target,
+            string name,
+            bool supported,
+            bool incomplete)
+        {
+            if (supported)
+                target["Readiness • " + name] = incomplete ? "НЕ ГОТОВ" : "Готов";
+        }
+
+        AddMonitor(result, "Misfire", (b & 0x01) != 0, (b & 0x10) != 0);
+        AddMonitor(result, "Fuel System", (b & 0x02) != 0, (b & 0x20) != 0);
+        AddMonitor(result, "Comprehensive Components", (b & 0x04) != 0, (b & 0x40) != 0);
+
+        if (!compressionIgnition)
+        {
+            var names = new[] { "Catalyst", "Heated Catalyst", "EVAP", "Secondary Air", "A/C Refrigerant", "O2 Sensor", "O2 Heater", "EGR/VVT" };
+            for (var bit = 0; bit < names.Length; bit++)
+                AddMonitor(result, names[bit], (c & (1 << bit)) != 0, (d & (1 << bit)) != 0);
+        }
+        else
+        {
+            var names = new[] { "NMHC Catalyst", "NOx/SCR", "Reserved", "Boost Pressure", "Reserved", "Exhaust Gas Sensor", "PM Filter", "EGR/VVT" };
+            for (var bit = 0; bit < names.Length; bit++)
+                if (!names[bit].Equals("Reserved", StringComparison.Ordinal))
+                    AddMonitor(result, names[bit], (c & (1 << bit)) != 0, (d & (1 << bit)) != 0);
+        }
+
         result["Readiness bytes"] = $"{b:X2} {c:X2} {d:X2}";
         return result;
     }

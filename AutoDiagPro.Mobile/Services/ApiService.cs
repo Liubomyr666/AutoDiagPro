@@ -229,7 +229,7 @@ public sealed class ApiService
     public Task<JsonElement> GetVehicleContextAsync(Guid vehicleId, CancellationToken ct = default) =>
         GetAuthorizedAsync<JsonElement>($"api/vehicles/{vehicleId}/context", ct);
 
-    public Task<JsonElement> DecodeVinAsync(string vin, CancellationToken ct = default) =>
+    public Task<JsonElement> DecodeVinRawAsync(string vin, CancellationToken ct = default) =>
         GetAuthorizedAsync<JsonElement>($"api/vin/decode/{Uri.EscapeDataString(vin)}", ct);
 
     public Task<List<ServerWorkshopClientRecord>> GetClientsAsync(CancellationToken ct = default) =>

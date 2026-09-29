@@ -13,10 +13,12 @@ public static class AccessPolicy
     public static bool IsAdmin =>
         IsPlatformAdmin ||
         Role.Equals("Admin", StringComparison.OrdinalIgnoreCase) ||
+        Role.Equals("Administrator", StringComparison.OrdinalIgnoreCase) ||
         Role.Equals("Owner", StringComparison.OrdinalIgnoreCase);
 
     public static bool IsManager =>
-        Role.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+        Role.Equals("Manager", StringComparison.OrdinalIgnoreCase) ||
+        Role.Equals("Moderator", StringComparison.OrdinalIgnoreCase);
 
     public static bool IsMechanic =>
         Role.Equals("Mechanic", StringComparison.OrdinalIgnoreCase) ||
@@ -28,7 +30,7 @@ public static class AccessPolicy
 
     public static string FriendlyRole => IsPlatformAdmin ? "Platform Admin" :
         IsAdmin ? (Role.Equals("Owner", StringComparison.OrdinalIgnoreCase) ? "Владелец СТО" : "Администратор СТО") :
-        IsManager ? "Менеджер СТО" :
+        IsManager ? (Role.Equals("Moderator", StringComparison.OrdinalIgnoreCase) ? "Модератор" : "Менеджер СТО") :
         IsMechanic ? "Механик" :
         "Клиент";
 

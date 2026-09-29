@@ -88,6 +88,28 @@ public sealed class Elm327Service
             throw new InvalidOperationException("OBD не подключён.");
 
         var result = new Dictionary<string, string>();
+        var modules = new (string Address, string Name, string RequestId, string ResponseId)[]
+        {
+            ("19", "CAN Gateway", "710", "77A"),
+            ("01", "Engine", "7E0", "7E8"),
+            ("02", "Transmission / DSG", "7E1", "7E9"),
+            ("03", "ABS / ESP", "713", "77D"),
+            ("15", "Airbag / SRS", "715", "77F"),
+            ("17", "Instruments", "714", "77E"),
+            ("09", "Central Electrics / BCM", "70E", "778"),
+            ("16", "Steering Column Electronics", "70C", "776"),
+            ("08", "Climatronic / HVAC", "746", "7B0"),
+            ("25", "KESSY / Access", "732", "79C"),
+            ("46", "Central Comfort", "70D", "777"),
+            ("5F", "Information Electronics", "773", "7DD"),
+            ("13", "ACC / Radar", "757", "7C1"),
+            ("42", "Door Electronics Driver", "74A", "7B4"),
+            ("52", "Door Electronics Passenger", "74B", "7B5"),
+            ("36", "Seat Memory Driver", "74C", "7B6"),
+            ("06", "Seat Memory Passenger", "74D", "7B7"),
+            ("53", "Parking Brake", "752", "7BC"),
+            ("44", "Steering Assist", "712", "77C")
+        };
 
         static string DecodeAsciiFromResponse(string raw, string did)
         {
@@ -102,47 +124,63 @@ public sealed class Elm327Service
                 .ToArray()).Trim();
         }
 
-        async Task Probe(string header, string label)
+        async Task<string> ReadDid(string did, int timeout = 1500)
         {
             try
             {
-                await CommandAsync("ATSH" + header, 1200, ct);
-                var response = await CommandAsync("22F187", 1800, ct);
-
+                var response = await CommandAsync("22" + did, timeout, ct);
                 if (response.Contains("NO DATA", StringComparison.OrdinalIgnoreCase))
+                    return "";
+                return DecodeAsciiFromResponse(response, did);
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        async Task Probe((string Address, string Name, string RequestId, string ResponseId) module)
+        {
+            try
+            {
+                await CommandAsync("ATSH" + module.RequestId, 1200, ct);
+
+                var part = await ReadDid("F187", 1600);
+                var asam = string.IsNullOrWhiteSpace(part)
+                    ? await ReadDid("F19E", 1600)
+                    : "";
+
+                var confirmed = !string.IsNullOrWhiteSpace(part) || !string.IsNullOrWhiteSpace(asam);
+                if (!confirmed)
                 {
-                    result[label] = "○ ответа нет";
+                    result[$"{module.Address} {module.Name}"] =
+                        $"○ не подтверждён • {module.RequestId}/{module.ResponseId}";
                     return;
                 }
 
-                var hex = HexOnly(response);
-                if (!hex.Contains("62F187", StringComparison.Ordinal))
-                {
-                    result[label] = "○ UDS F187 не подтверждён";
-                    return;
-                }
+                var sw = await ReadDid("F189", 1400);
+                var hw = await ReadDid("F191", 1400);
+                if (string.IsNullOrWhiteSpace(asam))
+                    asam = await ReadDid("F19E", 1400);
+                var system = await ReadDid("F197", 1400);
 
-                var part = DecodeAsciiFromResponse(response, "F187");
-                var value = "✓ подтверждён" +
-                            (string.IsNullOrWhiteSpace(part) ? "" : $" • {part}");
-
-                try
+                var identity = string.Join(" • ", new[]
                 {
-                    var swResponse = await CommandAsync("22F189", 1600, ct);
-                    var sw = DecodeAsciiFromResponse(swResponse, "F189");
-                    if (!string.IsNullOrWhiteSpace(sw))
-                        value += $" • SW {sw}";
-                }
-                catch
-                {
-                    // Optional read-only DID.
-                }
+                    part,
+                    string.IsNullOrWhiteSpace(sw) ? "" : "SW " + sw,
+                    string.IsNullOrWhiteSpace(hw) ? "" : "HW " + hw,
+                    asam,
+                    system
+                }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
-                result[label] = value;
+                result[$"{module.Address} {module.Name}"] =
+                    $"✓ подтверждён • {module.RequestId}/{module.ResponseId}" +
+                    (string.IsNullOrWhiteSpace(identity) ? "" : $" • {identity}");
             }
             catch (Exception ex)
             {
-                result[label] = "○ " + ex.Message;
+                result[$"{module.Address} {module.Name}"] =
+                    $"○ {ex.Message}";
             }
         }
 
@@ -154,13 +192,8 @@ public sealed class Elm327Service
             await CommandAsync("ATL0", 1200, ct);
             await CommandAsync("ATCAF1", 1200, ct);
 
-            await Probe("7E0", "01 Engine");
-            await Probe("7E1", "02 Transmission / DSG");
-
-            result["19 CAN Gateway"] = "△ нужен VAG-совместимый марочный транспорт/адресация";
-            result["03 ABS/ESP"] = "△ generic ELM не пробует guessed CAN ID";
-            result["15 Airbag/SRS"] = "△ generic ELM не пробует guessed CAN ID";
-            result["BCM / Cluster / Comfort"] = "△ требуется марочная VAG/KWP/UDS маршрутизация";
+            foreach (var module in modules)
+                await Probe(module);
         }
         finally
         {
@@ -169,6 +202,8 @@ public sealed class Elm327Service
             try { await CommandAsync("ATSP0", 1200, ct); } catch { }
         }
 
+        var confirmedCount = result.Values.Count(x => x.StartsWith("✓", StringComparison.Ordinal));
+        result["ИТОГ"] = $"Подтверждено UDS ECU: {confirmedCount} из {modules.Length}";
         return result;
     }
 

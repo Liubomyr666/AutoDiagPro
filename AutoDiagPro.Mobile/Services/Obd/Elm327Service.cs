@@ -88,11 +88,72 @@ public sealed class Elm327Service
             throw new InvalidOperationException("OBD не подключён.");
 
         var result = new Dictionary<string, string>();
-        var modules = new (string Name, string RequestId, string ResponseId)[]
+        var modules = new List<(string Name, string RequestId, string ResponseId)>();
+
+        async Task DiscoverResponders()
         {
-            ("Engine / Powertrain ECU", "7E0", "7E8"),
-            ("Transmission ECU", "7E1", "7E9")
-        };
+            try
+            {
+                await CommandAsync("ATSP0", 1500, ct);
+                await CommandAsync("ATH1", 1200, ct);
+                await CommandAsync("ATS0", 1200, ct);
+                await CommandAsync("ATL0", 1200, ct);
+                await CommandAsync("ATCAF1", 1200, ct);
+                await CommandAsync("ATSH7DF", 1200, ct);
+
+                var raw = await CommandAsync("0100", 2400, ct);
+                var responders = new HashSet<int>();
+
+                foreach (var line in raw.Split(
+                             '\n',
+                             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var hex = new string(line.Where(Uri.IsHexDigit).ToArray()).ToUpperInvariant();
+                    if (hex.Length < 3) continue;
+
+                    var header = hex[..3];
+                    if (!int.TryParse(
+                            header,
+                            NumberStyles.HexNumber,
+                            CultureInfo.InvariantCulture,
+                            out var rx))
+                        continue;
+
+                    if (rx is < 0x7E8 or > 0x7EF)
+                        continue;
+
+                    if (!hex.Contains("4100", StringComparison.Ordinal))
+                        continue;
+
+                    responders.Add(rx);
+                }
+
+                foreach (var rx in responders.OrderBy(x => x))
+                {
+                    var tx = rx - 8;
+                    modules.Add((
+                        $"Confirmed OBD responder {rx:X3}",
+                        tx.ToString("X3", CultureInfo.InvariantCulture),
+                        rx.ToString("X3", CultureInfo.InvariantCulture)));
+                }
+            }
+            catch
+            {
+                // Fall back to common Engine / Transmission addresses below.
+            }
+            finally
+            {
+                try { await CommandAsync("ATH0", 1000, ct); } catch { }
+            }
+        }
+
+        await DiscoverResponders();
+
+        if (modules.Count == 0)
+        {
+            modules.Add(("Engine / Powertrain ECU", "7E0", "7E8"));
+            modules.Add(("Transmission ECU", "7E1", "7E9"));
+        }
 
         static string DecodeAsciiFromResponse(string raw, string did)
         {
@@ -211,7 +272,6 @@ public sealed class Elm327Service
 
         try
         {
-            await CommandAsync("ATSP6", 1200, ct);
             await CommandAsync("ATH0", 1200, ct);
             await CommandAsync("ATS0", 1200, ct);
             await CommandAsync("ATL0", 1200, ct);
@@ -228,7 +288,7 @@ public sealed class Elm327Service
         }
 
         var confirmedCount = result.Values.Count(x => x.StartsWith("✓", StringComparison.Ordinal));
-        result["ИТОГ"] = $"Common UDS powertrain: {confirmedCount} из {modules.Length}";
+        result["ИТОГ"] = $"Responder-derived/common UDS powertrain: {confirmedCount} из {modules.Count}";
         return result;
     }
 

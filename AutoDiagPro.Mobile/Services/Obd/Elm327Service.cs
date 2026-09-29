@@ -88,7 +88,7 @@ public sealed class Elm327Service
             throw new InvalidOperationException("OBD не подключён.");
 
         var result = new Dictionary<string, string>();
-        var modules = new List<(string Name, string RequestId, string ResponseId)>();
+        var modules = new List<(string Name, string RequestId, string ResponseId, bool ObdConfirmed)>();
 
         async Task DiscoverResponders()
         {
@@ -134,7 +134,8 @@ public sealed class Elm327Service
                     modules.Add((
                         $"Confirmed OBD responder {rx:X3}",
                         tx.ToString("X3", CultureInfo.InvariantCulture),
-                        rx.ToString("X3", CultureInfo.InvariantCulture)));
+                        rx.ToString("X3", CultureInfo.InvariantCulture),
+                        true));
                 }
             }
             catch
@@ -151,8 +152,8 @@ public sealed class Elm327Service
 
         if (modules.Count == 0)
         {
-            modules.Add(("Engine / Powertrain ECU", "7E0", "7E8"));
-            modules.Add(("Transmission ECU", "7E1", "7E9"));
+            modules.Add(("Engine / Powertrain ECU", "7E0", "7E8", false));
+            modules.Add(("Transmission ECU", "7E1", "7E9", false));
         }
 
         static string DecodeAsciiFromResponse(string raw, string did)
@@ -214,23 +215,70 @@ public sealed class Elm327Service
             }
         }
 
-        async Task Probe((string Name, string RequestId, string ResponseId) module)
+        async Task<string> ReadMode09Ascii(string pid, int maxLength = 0)
+        {
+            try
+            {
+                var raw = await CommandAsync("09" + pid, 2200, ct);
+                var value = DecodeMode09Ascii(raw, "49" + pid, maxLength);
+                return value;
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        async Task<string> ReadMode09Cvn()
+        {
+            try
+            {
+                var raw = await CommandAsync("0906", 2200, ct);
+                var hex = HexOnly(raw);
+                var marker = hex.IndexOf("4906", StringComparison.Ordinal);
+                if (marker < 0) return "";
+
+                var data = hex[(marker + 4)..];
+                if (data.StartsWith("01", StringComparison.Ordinal) && data.Length > 2)
+                    data = data[2..];
+
+                return data.Length >= 8 ? GroupHex(data, 8) : "";
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        async Task Probe((string Name, string RequestId, string ResponseId, bool ObdConfirmed) module)
         {
             try
             {
                 await CommandAsync("ATSH" + module.RequestId, 1200, ct);
 
-                var vin = await ReadDid("F190", 1600);
+                var udsVin = await ReadDid("F190", 1600);
                 var part = await ReadDid("F187", 1600);
                 var asam = string.IsNullOrWhiteSpace(part)
                     ? await ReadDid("F19E", 1600)
                     : "";
 
-                var confirmed =
-                    !string.IsNullOrWhiteSpace(vin) ||
+                var udsIdentified =
+                    !string.IsNullOrWhiteSpace(udsVin) ||
                     !string.IsNullOrWhiteSpace(part) ||
                     !string.IsNullOrWhiteSpace(asam);
 
+                var mode09Vin = await ReadMode09Ascii("02", 17);
+                var calibrationId = await ReadMode09Ascii("04");
+                var cvn = await ReadMode09Cvn();
+                var ecuName = await ReadMode09Ascii("0A");
+
+                var mode09Identified =
+                    !string.IsNullOrWhiteSpace(mode09Vin) ||
+                    !string.IsNullOrWhiteSpace(calibrationId) ||
+                    !string.IsNullOrWhiteSpace(cvn) ||
+                    !string.IsNullOrWhiteSpace(ecuName);
+
+                var confirmed = module.ObdConfirmed || udsIdentified || mode09Identified;
                 if (!confirmed)
                 {
                     result[module.Name] =
@@ -238,29 +286,39 @@ public sealed class Elm327Service
                     return;
                 }
 
-                var sw = await ReadDid("F189", 1400);
-                var hw = await ReadDid("F191", 1400);
-                if (string.IsNullOrWhiteSpace(asam))
+                var sw = udsIdentified ? await ReadDid("F189", 1400) : "";
+                var hw = udsIdentified ? await ReadDid("F191", 1400) : "";
+                if (udsIdentified && string.IsNullOrWhiteSpace(asam))
                     asam = await ReadDid("F19E", 1400);
-                var system = await ReadDid("F197", 1400);
-                var dtcs = await ReadDtcs();
+                var system = udsIdentified ? await ReadDid("F197", 1400) : "";
+                var dtcs = udsIdentified ? await ReadDtcs() : new List<string>();
 
                 var identity = string.Join(" • ", new[]
                 {
-                    string.IsNullOrWhiteSpace(vin) ? "" : "VIN " + vin,
+                    string.IsNullOrWhiteSpace(udsVin) && !string.IsNullOrWhiteSpace(mode09Vin)
+                        ? "VIN " + mode09Vin
+                        : string.IsNullOrWhiteSpace(udsVin) ? "" : "VIN " + udsVin,
                     part,
                     string.IsNullOrWhiteSpace(sw) ? "" : "SW " + sw,
                     string.IsNullOrWhiteSpace(hw) ? "" : "HW " + hw,
+                    string.IsNullOrWhiteSpace(calibrationId) ? "" : "CALID " + calibrationId,
+                    string.IsNullOrWhiteSpace(cvn) ? "" : "CVN " + cvn,
+                    string.IsNullOrWhiteSpace(ecuName) ? "" : "ECU " + ecuName,
                     asam,
                     system
                 }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+                var layers = new List<string>();
+                if (module.ObdConfirmed) layers.Add("OBD responder");
+                if (udsIdentified) layers.Add("UDS");
+                if (mode09Identified) layers.Add("Mode 09");
 
                 var dtcText = dtcs.Count == 0
                     ? "DTC: нет возвращённых UDS записей / сервис не поддержан"
                     : "DTC: " + string.Join(", ", dtcs.Take(12));
 
                 result[module.Name] =
-                    $"✓ подтверждён • {module.RequestId}/{module.ResponseId}" +
+                    $"✓ подтверждён • {module.RequestId}/{module.ResponseId} • {string.Join(" + ", layers)}" +
                     (string.IsNullOrWhiteSpace(identity) ? "" : $" • {identity}") +
                     $" • {dtcText}";
             }

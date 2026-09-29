@@ -5,6 +5,8 @@ namespace AutoDiagPro.Mobile.Pages;
 public sealed class SettingsPage : ContentPage
 {
     private readonly ApiService _api = AppServices.Get<ApiService>();
+    private readonly MobileReleaseService _releases = new();
+    private readonly Label _release = Theme.MutedText("Проверка версии...");
 
     private readonly Entry _host = new()
     {
@@ -50,6 +52,7 @@ public sealed class SettingsPage : ContentPage
                 {
                     Theme.H1("Настройки"),
                     BuildAccountCard(),
+                    BuildUpdateCard(),
                     Theme.CardView(new VerticalStackLayout
                     {
                         Spacing = 10,
@@ -87,6 +90,7 @@ public sealed class SettingsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        await CheckReleaseAsync(showDialog: false);
         try
         {
             var health = await _api.GetHealthAsync();
@@ -97,6 +101,61 @@ public sealed class SettingsPage : ContentPage
         {
             _server.Text = ex.Message;
             _server.TextColor = Theme.Red;
+        }
+    }
+
+    private View BuildUpdateCard()
+    {
+        var check = DarkButton("Проверить обновление");
+        check.Clicked += async (_, _) => await CheckReleaseAsync(showDialog: true);
+
+        return Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 9,
+            Children =
+            {
+                new Label { Text = "ОБНОВЛЕНИЯ", FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                Theme.MutedText($"Установлено: iOS {AppInfo.Current.VersionString} • build {AppInfo.Current.BuildString}"),
+                _release,
+                check,
+                Theme.MutedText("На iPhone установка новой версии идёт через TestFlight/App Store после включения Apple Developer distribution.")
+            }
+        });
+    }
+
+    private async Task CheckReleaseAsync(bool showDialog)
+    {
+        _release.Text = "Проверяю актуальную iOS-версию...";
+        _release.TextColor = Theme.Muted;
+
+        try
+        {
+            var check = await _releases.CheckAsync();
+            if (check.UpdateAvailable)
+            {
+                _release.Text =
+                    $"Доступна iOS {check.LatestVersion} • build {check.LatestBuild}\n{check.Notes}";
+                _release.TextColor = Theme.Accent;
+                if (showDialog)
+                    await DisplayAlert("Обновление AutoDiag Pro",
+                        $"Доступна iOS {check.LatestVersion} build {check.LatestBuild}.\n\n{check.Distribution}",
+                        "OK");
+            }
+            else
+            {
+                _release.Text =
+                    $"Версия актуальна • iOS {check.CurrentVersion} build {check.CurrentBuild} • Server {check.ServerVersion}";
+                _release.TextColor = Theme.Green;
+                if (showDialog)
+                    await DisplayAlert("AutoDiag Pro", "Установлена актуальная iOS-версия.", "OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            _release.Text = "Проверка версии недоступна: " + ex.Message;
+            _release.TextColor = Theme.Red;
+            if (showDialog)
+                await DisplayAlert("Обновление", ex.Message, "OK");
         }
     }
 

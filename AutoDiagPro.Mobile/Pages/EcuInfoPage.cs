@@ -137,17 +137,32 @@ public sealed class EcuInfoPage : ContentPage
 
             if (!isVag)
             {
+                var modules = MobileEcuPlatformCatalogService.GetModules(brand);
+
                 _result.Add(Theme.CardView(new VerticalStackLayout
                 {
                     Spacing = 7,
                     Children =
                     {
-                        Theme.Eyebrow("BRAND ECU SCAN"),
+                        Theme.Eyebrow("BRAND ECU MAP"),
                         Theme.Body($"Марка: {brand ?? "не определена"}"),
-                        Theme.MutedText("На iPhone через BLE/Wi-Fi ELM сейчас включён безопасный VAG Engine/TCU read-only scan. Для BMW EDIABAS/K+DCAN/ENET и остальных OEM-протоколов нужен соответствующий марочный транспорт; AutoDiag не будет угадывать адреса блоков.")
+                        Theme.MutedText(
+                            brand is "BMW" or "MINI"
+                                ? "iPhone показывает карту ожидаемых BMW ECU, но не помечает их найденными. Реальный read-only IDENT выполняется через EDIABAS/K+DCAN/ENET на Windows."
+                                : "Для этой марки нужен соответствующий OEM-транспорт. AutoDiag не будет угадывать адреса блоков.")
                     }
                 }));
-                _status.Text = "Для этой марки нужен марочный интерфейс.";
+
+                foreach (var module in modules)
+                {
+                    _result.Add(Row(
+                        $"{module.Address} • {module.Name}",
+                        $"△ {module.Purpose}\n{module.Requirement}"));
+                }
+
+                _status.Text = modules.Count == 0
+                    ? "Для этой марки нужен марочный интерфейс."
+                    : $"Карта ECU загружена: {modules.Count}. Подтверждённых блоков: 0.";
                 _status.TextColor = Theme.Accent;
                 return;
             }

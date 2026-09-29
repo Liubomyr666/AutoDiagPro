@@ -173,15 +173,15 @@ public sealed class EcuInfoPage : ContentPage
                 Spacing = 7,
                 Children =
                 {
-                    Theme.Eyebrow("VAG ECU TOPOLOGY • READ-ONLY"),
-                    Theme.MutedText("✓ = блок реально ответил. △ = профиль известен, но текущий интерфейс не подтверждает блок.")
+                    Theme.Eyebrow("VAG INSTALLED ECU SCAN • READ-ONLY"),
+                    Theme.MutedText("AutoDiag проверяет 19 распространённых VAG UDS-профилей. ✓ ставится только после реального UDS-ответа блока.")
                 }
             }));
 
             foreach (var x in topology)
                 _result.Add(Row(x.Key, x.Value));
 
-            _status.Text = "Марочный VAG scan завершён без записи.";
+            _status.Text = "VAG installed ECU scan завершён без записи.";
             _status.TextColor = Theme.Green;
         }
         catch (Exception ex)
@@ -195,11 +195,26 @@ public sealed class EcuInfoPage : ContentPage
     {
         var grid = new Grid
         {
-            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto) },
+            ColumnDefinitions = { new ColumnDefinition(new GridLength(120)), new ColumnDefinition(GridLength.Star) },
             ColumnSpacing = 10
         };
-        grid.Add(new Label { Text = title, TextColor = Theme.Muted, FontSize = 12, VerticalTextAlignment = TextAlignment.Center }, 0, 0);
-        grid.Add(new Label { Text = value, TextColor = Theme.Text, FontAttributes = FontAttributes.Bold, FontSize = 13, HorizontalOptions = LayoutOptions.End }, 1, 0);
+        grid.Add(new Label
+        {
+            Text = title,
+            TextColor = Theme.Muted,
+            FontSize = 12,
+            VerticalTextAlignment = TextAlignment.Start,
+            LineBreakMode = LineBreakMode.WordWrap
+        }, 0, 0);
+        grid.Add(new Label
+        {
+            Text = value,
+            TextColor = Theme.Text,
+            FontAttributes = FontAttributes.Bold,
+            FontSize = 12,
+            HorizontalTextAlignment = TextAlignment.Start,
+            LineBreakMode = LineBreakMode.WordWrap
+        }, 1, 0);
         return Theme.CardView(grid, new Thickness(13));
     }
 }

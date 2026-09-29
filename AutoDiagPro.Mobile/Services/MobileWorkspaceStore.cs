@@ -59,7 +59,14 @@ public sealed class MobileWorkspaceStore
 
     public async Task ImportBackupAsync(string sourcePath)
     {
-        var text = await File.ReadAllTextAsync(sourcePath);
+        await using var stream = File.OpenRead(sourcePath);
+        await ImportBackupAsync(stream);
+    }
+
+    public async Task ImportBackupAsync(Stream source)
+    {
+        using var reader = new StreamReader(source, leaveOpen: true);
+        var text = await reader.ReadToEndAsync();
         var db = JsonSerializer.Deserialize<MobileWorkspaceDatabase>(text, _json)
                  ?? throw new InvalidOperationException("Файл резервной копии повреждён.");
         await SaveAsync(db);

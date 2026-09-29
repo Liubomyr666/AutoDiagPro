@@ -12,6 +12,11 @@ public sealed class WorkshopPage : ContentPage
     private readonly VerticalStackLayout _orders = new() { Spacing = 10 };
     private readonly VerticalStackLayout _searchResults = new() { Spacing = 9 };
     private readonly Label _status = Theme.MutedText("Загрузка СТО...");
+    private readonly Label _statOpen = Value();
+    private readonly Label _statRevenue = Value();
+    private readonly Label _statAppointments = Value();
+    private readonly Label _statClients = Value();
+    private readonly Label _statUnpaid = Value();
     private readonly Label _searchStatus = Theme.MutedText("Поиск по телефону / ID клиента, VIN или госномеру.");
     private readonly Entry _search = new()
     {
@@ -44,6 +49,7 @@ public sealed class WorkshopPage : ContentPage
                 {
                     BuildHeader(),
                     BuildHero(),
+                    BuildStats(),
                     BuildSearch(),
                     BuildIntakeCard(),
                     BuildModules(),
@@ -101,6 +107,34 @@ public sealed class WorkshopPage : ContentPage
             Content = grid
         };
     }
+
+    private View BuildStats()
+    {
+        var grid = new Grid
+        {
+            ColumnDefinitions = { new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Star) },
+            RowDefinitions = { new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto) },
+            ColumnSpacing = 10,
+            RowSpacing = 10
+        };
+        grid.Add(Stat("Открытые работы", _statOpen), 0, 0);
+        grid.Add(Stat("Оплачено сегодня", _statRevenue), 1, 0);
+        grid.Add(Stat("Записи", _statAppointments), 0, 1);
+        grid.Add(Stat("Клиенты", _statClients), 1, 1);
+        grid.Add(Stat("Неоплаченные счета", _statUnpaid), 0, 2);
+        return new VerticalStackLayout { Spacing = 9, Children = { Theme.H2("Статистика СТО"), grid } };
+    }
+
+    private static View Stat(string title, Label value) =>
+        Theme.CardView(new VerticalStackLayout { Spacing = 5, Children = { Theme.Eyebrow(title), value } }, new Thickness(13));
+
+    private static Label Value() => new()
+    {
+        Text = "—",
+        FontSize = 17,
+        FontAttributes = FontAttributes.Bold,
+        TextColor = Theme.Text
+    };
 
     private View BuildSearch()
     {
@@ -630,7 +664,17 @@ public sealed class WorkshopPage : ContentPage
         _orders.Clear();
         try
         {
-            var list = await _api.GetWorkOrdersAsync();
+            var listTask = _api.GetWorkOrdersAsync();
+            var dashboardTask = _api.GetDashboardAsync();
+            await Task.WhenAll(listTask, dashboardTask);
+            var list = await listTask;
+            var dashboard = await dashboardTask;
+            _statOpen.Text = dashboard.ActiveOrders.ToString();
+            _statRevenue.Text = dashboard.PaidToday.ToString("N2") + " €";
+            _statAppointments.Text = dashboard.ReadyOrders.ToString();
+            _statClients.Text = dashboard.Clients.ToString();
+            _statUnpaid.Text = dashboard.UnpaidInvoices.ToString();
+
             var selected = _state.SelectedVehicle;
             if (selected is not null)
                 list = list.Where(x => x.VehicleId == selected.Id).ToList();

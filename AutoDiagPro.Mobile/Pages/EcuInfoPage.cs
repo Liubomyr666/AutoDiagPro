@@ -146,6 +146,16 @@ public sealed class EcuInfoPage : ContentPage
                 }
             }));
 
+            _result.Add(Theme.CardView(new VerticalStackLayout
+            {
+                Spacing = 7,
+                Children =
+                {
+                    Theme.Eyebrow("OEM DEEP PROFILE"),
+                    Theme.MutedText(MobileOemDeepProfileStatusService.Describe(brand))
+                }
+            }));
+
             if (!isVag)
             {
                 var commonUds = await _obd.CommonPowertrainUdsIdentityAsync();

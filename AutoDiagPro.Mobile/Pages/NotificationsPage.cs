@@ -49,6 +49,24 @@ public sealed class NotificationsPage : ContentPage
     {
         var db = await _store.LoadAsync();
         var vehicle = _state.SelectedVehicle;
+        List<ServerAppointmentRecord> cloudAppointments = new();
+        List<ServerInvoiceRecord> cloudInvoices = new();
+        List<ServerMaintenanceRecord> cloudMaintenance = new();
+
+        if (vehicle is not null)
+        {
+            try
+            {
+                var appointmentsTask = _api.GetAppointmentsAsync(vehicle.Id);
+                var invoicesTask = _api.GetInvoicesAsync(vehicle.Id);
+                var maintenanceTask = _api.GetMaintenanceAsync(vehicle.Id);
+                await Task.WhenAll(appointmentsTask, invoicesTask, maintenanceTask);
+                cloudAppointments = await appointmentsTask;
+                cloudInvoices = await invoicesTask;
+                cloudMaintenance = await maintenanceTask;
+            }
+            catch { }
+        }
 
         void Add(Guid? vehicleId, string key, string kind, string title, string message)
         {
@@ -67,6 +85,28 @@ public sealed class NotificationsPage : ContentPage
         if (vehicle is not null)
         {
             var plan = db.ServicePlans.FirstOrDefault(x => x.VehicleId == vehicle.Id);
+            var cloudPlan = cloudMaintenance
+                .Where(x => x.DueDate is not null)
+                .OrderBy(x => x.DueDate)
+                .FirstOrDefault();
+
+            if (cloudPlan?.DueDate is DateOnly cloudDate)
+            {
+                var cloudDue = new DateTimeOffset(cloudDate.ToDateTime(new TimeOnly(9, 0)));
+                if (cloudDue <= DateTimeOffset.Now.AddDays(30))
+                {
+                    Add(vehicle.Id, $"cloud-service-{cloudPlan.Id}-{cloudDate:yyyyMMdd}", "ТО", "Скоро обслуживание",
+                        $"{cloudPlan.Name} • {cloudDate:dd.MM.yyyy}.");
+                    var cloudRemindAt = cloudDue.AddDays(-1);
+                    if (cloudRemindAt <= DateTimeOffset.Now) cloudRemindAt = DateTimeOffset.Now.AddMinutes(2);
+                    await LocalNotificationService.ScheduleAsync(
+                        $"cloud-service-{cloudPlan.Id}-{cloudDate:yyyyMMdd}",
+                        "AutoDiag Pro • ТО",
+                        $"{cloudPlan.Name} • {cloudDate:dd.MM.yyyy}",
+                        cloudRemindAt);
+                }
+            }
+
             if (plan?.NextServiceDate is DateTimeOffset date && date <= DateTimeOffset.Now.AddDays(30))
             {
                 Add(vehicle.Id, $"service-date-{vehicle.Id}-{date:yyyyMMdd}", "ТО", "Скоро обслуживание",
@@ -99,25 +139,46 @@ public sealed class NotificationsPage : ContentPage
             catch { }
         }
 
-        foreach (var appointment in db.Appointments.Where(x =>
-                     x.Status != "Готово" &&
+        foreach (var appointment in cloudAppointments.Where(x =>
+                     !string.Equals(x.Status, "Completed", StringComparison.OrdinalIgnoreCase) &&
+                     !string.Equals(x.Status, "Cancelled", StringComparison.OrdinalIgnoreCase) &&
                      x.StartsAt >= DateTimeOffset.Now &&
                      x.StartsAt <= DateTimeOffset.Now.AddHours(48)))
         {
-            Add(appointment.VehicleId, $"appointment-{appointment.Id}", "ЗАПИСЬ", "Скоро запись на СТО",
+            Add(appointment.VehicleId, $"cloud-appointment-{appointment.Id}", "ЗАПИСЬ", "Скоро запись на СТО",
                 $"{appointment.StartsAt.LocalDateTime:dd.MM HH:mm} • {appointment.Work}");
 
             var remindAt = appointment.StartsAt.AddHours(-1);
             if (remindAt <= DateTimeOffset.Now) remindAt = DateTimeOffset.Now.AddMinutes(2);
             await LocalNotificationService.ScheduleAsync(
-                $"appointment-{appointment.Id}",
+                $"cloud-appointment-{appointment.Id}",
                 "AutoDiag Pro • Запись на СТО",
                 $"{appointment.StartsAt.LocalDateTime:dd.MM HH:mm} • {appointment.Work}",
                 remindAt);
         }
 
+        foreach (var invoice in cloudInvoices.Where(x => !x.Paid))
+        {
+            Add(invoice.VehicleId, $"cloud-invoice-{invoice.Id}", "СЧЁТ", "Есть неоплаченный счёт",
+                $"{invoice.Number} • {invoice.Amount:N2} €");
+            await LocalNotificationService.ScheduleAsync(
+                $"cloud-invoice-{invoice.Id}",
+                "AutoDiag Pro • Неоплаченный счёт",
+                $"{invoice.Number} • {invoice.Amount:N2} €",
+                DateTimeOffset.Now.AddMinutes(2));
+        }
+
+        foreach (var appointment in db.Appointments.Where(x =>
+                     x.Status != "Готово" &&
+                     x.StartsAt >= DateTimeOffset.Now &&
+                     x.StartsAt <= DateTimeOffset.Now.AddHours(48)))
+        {
+            Add(appointment.VehicleId, $"appointment-{appointment.Id}", "ЗАПИСЬ", "Скоро локальная запись на СТО",
+                $"{appointment.StartsAt.LocalDateTime:dd.MM HH:mm} • {appointment.Work}");
+        }
+
         foreach (var invoice in db.Invoices.Where(x => !x.Paid))
-            Add(invoice.VehicleId, $"invoice-{invoice.Id}", "СЧЁТ", "Есть неоплаченный счёт",
+            Add(invoice.VehicleId, $"invoice-{invoice.Id}", "СЧЁТ", "Есть локальный неоплаченный счёт",
                 $"{invoice.Number} • {invoice.Amount:N2} €");
 
         if (db.PendingScans.Count > 0)

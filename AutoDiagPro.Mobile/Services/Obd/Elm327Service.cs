@@ -82,6 +82,96 @@ public sealed class Elm327Service
         return DecodeMode09Ascii(raw, "4902", 17);
     }
 
+    public async Task<Dictionary<string, string>> VagPowertrainTopologyAsync(CancellationToken ct = default)
+    {
+        if (!IsConnected)
+            throw new InvalidOperationException("OBD не подключён.");
+
+        var result = new Dictionary<string, string>();
+
+        static string DecodeAsciiFromResponse(string raw, string did)
+        {
+            var hex = HexOnly(raw);
+            var marker = hex.IndexOf("62" + did, StringComparison.Ordinal);
+            if (marker < 0) return "";
+
+            var payload = hex[(marker + 2 + did.Length)..];
+            var bytes = HexBytes(payload);
+            return new string(Encoding.ASCII.GetString(bytes)
+                .Where(ch => !char.IsControl(ch) && ch >= 32 && ch <= 126)
+                .ToArray()).Trim();
+        }
+
+        async Task Probe(string header, string label)
+        {
+            try
+            {
+                await CommandAsync("ATSH" + header, 1200, ct);
+                var response = await CommandAsync("22F187", 1800, ct);
+
+                if (response.Contains("NO DATA", StringComparison.OrdinalIgnoreCase))
+                {
+                    result[label] = "○ ответа нет";
+                    return;
+                }
+
+                var hex = HexOnly(response);
+                if (!hex.Contains("62F187", StringComparison.Ordinal))
+                {
+                    result[label] = "○ UDS F187 не подтверждён";
+                    return;
+                }
+
+                var part = DecodeAsciiFromResponse(response, "F187");
+                var value = "✓ подтверждён" +
+                            (string.IsNullOrWhiteSpace(part) ? "" : $" • {part}");
+
+                try
+                {
+                    var swResponse = await CommandAsync("22F189", 1600, ct);
+                    var sw = DecodeAsciiFromResponse(swResponse, "F189");
+                    if (!string.IsNullOrWhiteSpace(sw))
+                        value += $" • SW {sw}";
+                }
+                catch
+                {
+                    // Optional read-only DID.
+                }
+
+                result[label] = value;
+            }
+            catch (Exception ex)
+            {
+                result[label] = "○ " + ex.Message;
+            }
+        }
+
+        try
+        {
+            await CommandAsync("ATSP6", 1200, ct);
+            await CommandAsync("ATH0", 1200, ct);
+            await CommandAsync("ATS0", 1200, ct);
+            await CommandAsync("ATL0", 1200, ct);
+            await CommandAsync("ATCAF1", 1200, ct);
+
+            await Probe("7E0", "01 Engine");
+            await Probe("7E1", "02 Transmission / DSG");
+
+            result["19 CAN Gateway"] = "△ нужен VAG-совместимый марочный транспорт/адресация";
+            result["03 ABS/ESP"] = "△ generic ELM не пробует guessed CAN ID";
+            result["15 Airbag/SRS"] = "△ generic ELM не пробует guessed CAN ID";
+            result["BCM / Cluster / Comfort"] = "△ требуется марочная VAG/KWP/UDS маршрутизация";
+        }
+        finally
+        {
+            try { await CommandAsync("ATSH7DF", 1000, ct); } catch { }
+            try { await CommandAsync("ATH0", 1000, ct); } catch { }
+            try { await CommandAsync("ATSP0", 1200, ct); } catch { }
+        }
+
+        return result;
+    }
+
     public async Task<Dictionary<string, string>> EcuInfoAsync(CancellationToken ct = default)
     {
         var result = new Dictionary<string, string>

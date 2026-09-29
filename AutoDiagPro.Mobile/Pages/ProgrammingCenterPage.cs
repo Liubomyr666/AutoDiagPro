@@ -12,6 +12,7 @@ public sealed class ProgrammingCenterPage : ContentPage
     private readonly Label _title = Theme.H1("Programming Center");
     private readonly Label _subtitle = Theme.MutedText("");
     private readonly Label _status = Theme.MutedText("Проверка не запускалась.");
+    private readonly Label _capabilities = Theme.MutedText("Подключите адаптер и запустите проверку возможностей.");
     private readonly VerticalStackLayout _ecu = new() { Spacing = 8 };
     private readonly Entry _batteryAh = Field("Ёмкость АКБ, Ah", Keyboard.Numeric);
     private readonly Picker _batteryType = new() { Title = "Тип АКБ", ItemsSource = new[] { "AGM", "EFB", "Обычный свинцово-кислотный", "Li-ion" } };
@@ -58,6 +59,15 @@ public sealed class ProgrammingCenterPage : ContentPage
                     }),
                     check,
                     _status,
+                    Theme.CardView(new VerticalStackLayout
+                    {
+                        Spacing = 7,
+                        Children =
+                        {
+                            Theme.Eyebrow("ADAPTER CAPABILITIES"),
+                            _capabilities
+                        }
+                    }),
                     _ecu,
                     Theme.CardView(_batteryPanel)
                 }
@@ -92,13 +102,27 @@ public sealed class ProgrammingCenterPage : ContentPage
             _status.Text = "Читаю идентификацию и питание...";
             _status.TextColor = Theme.Accent;
 
+            var adapterId = await _obd.AdapterIdAsync();
+            var protocol = await _obd.ProtocolAsync();
             var info = await _obd.EcuInfoAsync();
             foreach (var x in info)
                 _ecu.Add(Row(x.Key, x.Value));
 
+            var brand = _state.SelectedVehicle?.Make;
+            var capability = MobileAdapterCapabilityService.Evaluate(
+                adapterId,
+                _obd.TransportName,
+                protocol,
+                brand);
+            _capabilities.Text = capability.ToDisplayText();
+
             var voltageText = info.TryGetValue("Напряжение", out var v) ? v : "";
             var voltage = ParseVoltage(voltageText);
             var module = _title.Text ?? "";
+
+            _ecu.Insert(0, Row("Адаптер", adapterId));
+            _ecu.Insert(1, Row("Транспорт", _obd.TransportName));
+            _ecu.Insert(2, Row("Протокол", protocol));
 
             var compatibility = module switch
             {

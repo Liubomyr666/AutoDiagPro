@@ -149,7 +149,7 @@ public sealed class EcuInfoPage : ContentPage
                         Theme.MutedText(
                             brand is "BMW" or "MINI"
                                 ? "iPhone показывает карту ожидаемых BMW ECU, но не помечает их найденными. Реальный read-only IDENT выполняется через EDIABAS/K+DCAN/ENET на Windows."
-                                : "Для этой марки нужен соответствующий OEM-транспорт. AutoDiag не будет угадывать адреса блоков.")
+                                : $"Профиль {MobileEcuPlatformCatalogService.Group(brand)} загружен. Универсальный OBD-II доступен через текущий адаптер, а глубокие ECU подтверждаются только через подходящий J2534/DoIP/OEM-транспорт. AutoDiag не угадывает адреса блоков.")
                     }
                 }));
 
@@ -186,10 +186,10 @@ public sealed class EcuInfoPage : ContentPage
                 Spacing = 7,
                 Children =
                 {
-                    Theme.Eyebrow("VAG • J2534 / PQ46"),
+                    Theme.Eyebrow("OEM / J2534 FALLBACK"),
                     Theme.MutedText(
-                        "Если Gateway/ABS/Airbag не подтверждаются через BLE/Wi-Fi ELM, Windows AutoDiag умеет запускать тот же read-only UDS scan через native J2534 PassThru. " +
-                        "Для старых Passat B6/PQ46 блоков на KWP/TP2.0 нужен отдельный марочный transport; они не помечаются неисправными только из-за отсутствия UDS-ответа.")
+                        "Если глубокие ECU не подтверждаются через BLE/Wi-Fi ELM, Windows AutoDiag использует J2534/EDIABAS/DoIP/OEM-транспорт по марке и поколению. " +
+                        "Старые KWP/TP2.0 и другие legacy-блоки не помечаются неисправными только из-за отсутствия UDS-ответа.")
                 }
             }));
 

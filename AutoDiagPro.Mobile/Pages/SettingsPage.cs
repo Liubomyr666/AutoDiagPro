@@ -5,6 +5,7 @@ namespace AutoDiagPro.Mobile.Pages;
 public sealed class SettingsPage : ContentPage
 {
     private readonly ApiService _api = AppServices.Get<ApiService>();
+    private readonly MobileWorkspaceStore _store = AppServices.Get<MobileWorkspaceStore>();
     private readonly MobileReleaseService _releases = new();
     private readonly Label _release = Theme.MutedText("Проверка версии...");
 
@@ -38,6 +39,12 @@ public sealed class SettingsPage : ContentPage
         var save = DarkButton("Сохранить OBD настройки");
         save.Clicked += SaveClicked;
 
+        var backup = DarkButton("Создать резервную копию");
+        backup.Clicked += BackupClicked;
+
+        var restore = DarkButton("Восстановить из копии");
+        restore.Clicked += RestoreClicked;
+
         var logout = DarkButton("Выйти из аккаунта");
         logout.TextColor = Theme.Red;
         logout.Clicked += LogoutClicked;
@@ -70,6 +77,16 @@ public sealed class SettingsPage : ContentPage
                             new Label { Text = "ПОИСК ЗАПЧАСТЕЙ", FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
                             Theme.MutedText("AI использует этот регион при поиске магазинов и цен."),
                             _partsRegion
+                        }
+                    }),
+                    Theme.CardView(new VerticalStackLayout
+                    {
+                        Spacing = 9,
+                        Children =
+                        {
+                            new Label { Text = "РЕЗЕРВНАЯ КОПИЯ", FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                            Theme.MutedText("CRM, записи, счета, Repair Brain, ТО, локальные уведомления и offline-очередь."),
+                            backup, restore
                         }
                     }),
                     Theme.CardView(new VerticalStackLayout
@@ -189,6 +206,41 @@ public sealed class SettingsPage : ContentPage
             string.IsNullOrWhiteSpace(_partsRegion.Text) ? "Германия / ЕС" : _partsRegion.Text.Trim());
         await DisplayAlert("AutoDiag", "Настройки сохранены.", "OK");
     }
+    private async void BackupClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            var path = await _store.ExportBackupAsync();
+            await Share.Default.RequestAsync(new ShareFileRequest
+            {
+                Title = "AutoDiag Pro Backup",
+                File = new ShareFile(path)
+            });
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Резервная копия", ex.Message, "OK");
+        }
+    }
+
+    private async void RestoreClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            var file = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "Выберите AutoDiag backup JSON"
+            });
+            if (file is null) return;
+            await _store.ImportBackupAsync(file.FullPath);
+            await DisplayAlert("Резервная копия", "Данные восстановлены.", "OK");
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Резервная копия", ex.Message, "OK");
+        }
+    }
+
     private async void LogoutClicked(object? sender, EventArgs e)
     {
         var yes = await DisplayAlert("AutoDiag", "Выйти из аккаунта?", "Выйти", "Отмена");

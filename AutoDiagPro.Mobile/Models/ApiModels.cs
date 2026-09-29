@@ -22,6 +22,24 @@ public sealed class ServerHealth
     public DateTimeOffset Utc { get; set; }
 }
 
+public sealed class ServerVinDecodeRecord
+{
+    public string Vin { get; set; } = "";
+    public string? Make { get; set; }
+    public string? Model { get; set; }
+    public string? ModelYear { get; set; }
+    public string? VehicleType { get; set; }
+    public string? BodyClass { get; set; }
+    public string? Engine { get; set; }
+    public string? DisplacementL { get; set; }
+    public string? FuelType { get; set; }
+    public string? Transmission { get; set; }
+    public string? DriveType { get; set; }
+    public string? Source { get; set; }
+
+    public int? ParsedYear => int.TryParse(ModelYear, out var year) ? year : null;
+}
+
 public class ServerVehicleRecord
 {
     public Guid Id { get; set; }

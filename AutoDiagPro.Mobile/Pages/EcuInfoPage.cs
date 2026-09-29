@@ -155,7 +155,7 @@ public sealed class EcuInfoPage : ContentPage
                     Children =
                     {
                         Theme.Eyebrow("RESPONDER-DERIVED UDS • READ-ONLY"),
-                        Theme.MutedText("AutoDiag сначала ищет реальные OBD responders 7E8…7EF, затем опрашивает соответствующие физические ECU. Если headers недоступны, остаётся safe fallback Engine/Transmission. Читаются идентификация и UDS DTC 0x19; ничего не стирается.")
+                        Theme.MutedText("AutoDiag сначала ищет реальные OBD responders 7E8…7EF, затем опрашивает соответствующие физические ECU. Если headers недоступны, остаётся safe fallback Engine/Transmission. Читаются UDS identity/DTC и Mode 09 VIN/CALID/CVN/ECU Name; ничего не стирается.")
                     }
                 }));
 

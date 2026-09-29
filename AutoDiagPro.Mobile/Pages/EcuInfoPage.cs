@@ -154,8 +154,8 @@ public sealed class EcuInfoPage : ContentPage
                     Spacing = 7,
                     Children =
                     {
-                        Theme.Eyebrow("COMMON UDS POWERTRAIN • READ-ONLY"),
-                        Theme.MutedText("Для любой марки AutoDiag безопасно пробует common Engine/Transmission UDS candidates 7E0/7E8 и 7E1/7E9. ✓ ставится только после настоящего 0x62 ответа.")
+                        Theme.Eyebrow("RESPONDER-DERIVED UDS • READ-ONLY"),
+                        Theme.MutedText("AutoDiag сначала ищет реальные OBD responders 7E8…7EF, затем опрашивает соответствующие физические ECU. Если headers недоступны, остаётся safe fallback Engine/Transmission. Читаются идентификация и UDS DTC 0x19; ничего не стирается.")
                     }
                 }));
 
@@ -200,7 +200,7 @@ public sealed class EcuInfoPage : ContentPage
                 Children =
                 {
                     Theme.Eyebrow("VAG INSTALLED ECU SCAN • READ-ONLY"),
-                    Theme.MutedText("AutoDiag проверяет 19 распространённых VAG UDS-профилей. ✓ ставится только после реального UDS-ответа блока.")
+                    Theme.MutedText("AutoDiag проверяет 19 распространённых VAG UDS-профилей. ✓ ставится только после реального UDS-ответа блока. Для подтверждённых ECU также читаются VIN/идентификация и UDS DTC 0x19 без очистки.")
                 }
             }));
 

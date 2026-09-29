@@ -1,0 +1,9 @@
+AutoDiag Pro iOS 3.6.0 build 28
+
+Release integration:
+- cloud vehicle timeline: diagnostics, workshop orders, appointments, invoices, maintenance, installed parts and photos
+- notification center uses cloud appointments, invoices and maintenance reminders
+- client/workshop cloud workflow with estimates and approval
+- existing OBD, AI, offline queue, QR parts, damage photos, roles, audit, backup and workshop statistics retained
+
+This file intentionally triggers the final iOS build and runtime smoke test for the release head.

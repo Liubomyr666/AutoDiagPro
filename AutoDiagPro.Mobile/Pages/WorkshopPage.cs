@@ -582,7 +582,8 @@ public sealed class WorkshopPage : ContentPage
             }
             if (title == "Сотрудники")
             {
-                await Shell.Current.GoToAsync("admin");
+                _state.PendingModuleTitle = "Сотрудники";
+                await Shell.Current.GoToAsync("workshopmanager");
                 return;
             }
             if (title == "Отчёты")

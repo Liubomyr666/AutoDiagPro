@@ -1,3 +1,4 @@
+using AutoDiagPro.Mobile.Models;
 using AutoDiagPro.Mobile.Services;
 using AutoDiagPro.Mobile.Services.Obd;
 
@@ -297,13 +298,16 @@ public sealed class DiagnosticsPage : ContentPage
         try
         {
             var vin = await _obd.VinAsync();
-            _vehicle.Text = string.IsNullOrWhiteSpace(vin) ? "VIN • не прочитан" : $"VIN • {vin}";
+            var identity = VehicleIdentityService.Decode(vin);
+            _vehicle.Text = string.IsNullOrWhiteSpace(vin)
+                ? "VIN • не прочитан"
+                : $"VIN • {identity.Vin} • {identity.Make} • {identity.ModelYear?.ToString() ?? "год —"}";
 
             if (!string.IsNullOrWhiteSpace(vin))
             {
-                var matched = _state.Vehicles.FirstOrDefault(x =>
-                    string.Equals(x.Vin, vin, StringComparison.OrdinalIgnoreCase));
-                if (matched is not null) _state.SelectedVehicle = matched;
+                _state.LastVin = identity.Vin;
+                var matched = await EnsureVehicleForVinAsync(identity);
+                ShowResult($"Автомобиль определён\nVIN: {identity.Vin}\nМарка: {identity.Make}\nМодельный год: {identity.ModelYear?.ToString() ?? "—"}\nРегион: {identity.Country}\nWMI: {identity.Wmi}\nAutoDiag: {(matched is null ? "VIN определён, но автомобиль не синхронизирован" : "автомобиль выбран и синхронизирован")}");
             }
         }
         catch (Exception ex)
@@ -395,8 +399,9 @@ public sealed class DiagnosticsPage : ContentPage
             var ecu = await _obd.EcuInfoAsync();
             var live = await _obd.LiveSnapshotAsync();
 
+            var identity = VehicleIdentityService.Decode(vin);
             var summary =
-                $"VIN: {vin}\nПротокол: {protocol}\nНапряжение: {voltage}\n" +
+                $"VIN: {identity.Vin}\nМарка: {identity.Make}\nМодельный год: {identity.ModelYear?.ToString() ?? "—"}\nРегион: {identity.Country}\nПротокол: {protocol}\nНапряжение: {voltage}\n" +
                 (dtc.Count == 0 ? "DTC: ошибок нет" : $"DTC: {string.Join(", ", dtc)}") +
                 "\n\nECU / CALIBRATION\n" + string.Join("\n", ecu.Select(x => $"{x.Key}: {x.Value}")) +
                 "\n\nREADINESS\n" + string.Join("\n", readiness.Select(x => $"{x.Key}: {x.Value}")) +
@@ -416,7 +421,7 @@ public sealed class DiagnosticsPage : ContentPage
             else
                 await RenderDtcCardsAsync(summary, dtc, runAiImmediately: true);
 
-            var vehicle = _state.SelectedVehicle;
+            var vehicle = await EnsureVehicleForVinAsync(identity);
             if (vehicle is not null)
             {
                 var uploaded = await OfflineSyncService.UploadOrQueueScanAsync(
@@ -572,6 +577,42 @@ public sealed class DiagnosticsPage : ContentPage
             "Не выдумывай каталожные номера или совместимость. В конце дай короткий список «Что делать сейчас».";
 
         return (await _api.AskAiAsync(question, context, true)).Answer;
+    }
+
+    private async Task<ServerVehicleRecord?> EnsureVehicleForVinAsync(VehicleIdentityResult identity)
+    {
+        if (!identity.IsValid) return _state.SelectedVehicle;
+
+        var existing = _state.Vehicles.FirstOrDefault(x =>
+            string.Equals(VehicleIdentityService.Normalize(x.Vin), identity.Vin, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is not null)
+        {
+            _state.SelectedVehicle = existing;
+            return existing;
+        }
+
+        try
+        {
+            var id = await _api.CreateVehicleAsync(new ServerVehicleCreate
+            {
+                Vin = identity.Vin,
+                Make = string.Equals(identity.Make, "Не определено", StringComparison.OrdinalIgnoreCase) ? null : identity.Make,
+                Year = identity.ModelYear
+            });
+
+            var vehicles = await _api.GetVehiclesAsync();
+            _state.Vehicles = vehicles;
+            var created = vehicles.FirstOrDefault(x => x.Id == id) ??
+                          vehicles.FirstOrDefault(x =>
+                              string.Equals(VehicleIdentityService.Normalize(x.Vin), identity.Vin, StringComparison.OrdinalIgnoreCase));
+            if (created is not null) _state.SelectedVehicle = created;
+            return created;
+        }
+        catch
+        {
+            return _state.SelectedVehicle;
+        }
     }
 
     private bool RequireConnection()

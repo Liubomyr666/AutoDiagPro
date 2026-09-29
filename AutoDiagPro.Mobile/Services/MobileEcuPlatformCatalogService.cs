@@ -261,10 +261,10 @@ public static class MobileEcuPlatformCatalogService
         if (b is "Volkswagen" or "Audi" or "Škoda" or "Skoda" or "SEAT" or "CUPRA" or "Porsche") return "VAG";
         if (b is "BMW" or "MINI") return "BMW";
         if (b is "Mercedes-Benz" or "Smart") return "MERCEDES";
-        if (b is "Toyota" or "Lexus") return "TOYOTA";
+        if (b is "Toyota" or "Lexus" or "Daihatsu") return "TOYOTA";
         if (b is "Ford" or "Lincoln") return "FORD";
-        if (b is "Chevrolet" or "Cadillac") return "GM";
-        if (b is "Opel" or "Vauxhall" or "Peugeot" or "Citroën" or "Citroen" or "DS Automobiles" or "Fiat" or "Alfa Romeo" or "Jeep") return "STELLANTIS";
+        if (b is "Chevrolet" or "Cadillac" or "Buick" or "GMC") return "GM";
+        if (b is "Opel" or "Vauxhall" or "Peugeot" or "Citroën" or "Citroen" or "DS Automobiles" or "Fiat" or "Alfa Romeo" or "Jeep" or "Chrysler" or "Dodge" or "RAM" or "Abarth" or "Lancia") return "STELLANTIS";
         if (b is "Renault" or "Dacia") return "RENAULT";
         if (b is "Hyundai" or "Kia" or "Genesis") return "HYUNDAI_KIA";
         if (b is "Nissan" or "Infiniti") return "NISSAN";

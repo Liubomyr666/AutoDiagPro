@@ -67,6 +67,9 @@ public sealed class Elm327Service
         return Clean(response);
     }
 
+    public async Task<string> AdapterIdAsync(CancellationToken ct = default) =>
+        FirstLine(await CommandAsync("ATI", 1200, ct));
+
     public async Task<string> VoltageAsync(CancellationToken ct = default) =>
         FirstLine(await CommandAsync("ATRV", 1200, ct));
 

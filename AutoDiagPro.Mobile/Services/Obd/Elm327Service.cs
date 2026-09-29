@@ -606,6 +606,155 @@ public sealed class Elm327Service
         return result;
     }
 
+    public async Task<Dictionary<string, string>> FreezeFrameAsync(CancellationToken ct = default)
+    {
+        var result = new Dictionary<string, string>();
+
+        async Task<string?> FreezePid(string pid)
+        {
+            try
+            {
+                return await ReadPidAsync("02" + pid + "00", "42" + pid + "00", ct);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        try
+        {
+            var dtc = await FreezePid("02");
+            if (dtc is { Length: >= 4 } &&
+                ushort.TryParse(dtc.AsSpan(0, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var value) &&
+                value != 0)
+            {
+                const string type = "PCBU";
+                result["Freeze-frame DTC"] =
+                    $"{type[(value >> 14) & 3]}{(value >> 12) & 3}{(value >> 8) & 15:X}{(value >> 4) & 15:X}{value & 15:X}";
+            }
+        }
+        catch { }
+
+        var p04 = await FreezePid("04");
+        if (p04 is { Length: >= 2 })
+            result["Нагрузка"] = $"{Math.Round(B(p04, 0) * 100.0 / 255, 1)} %";
+
+        var p05 = await FreezePid("05");
+        if (p05 is { Length: >= 2 })
+            result["Температура ОЖ"] = $"{B(p05, 0) - 40} °C";
+
+        var p06 = await FreezePid("06");
+        if (p06 is { Length: >= 2 })
+            result["STFT Bank 1"] = $"{Math.Round((B(p06, 0) - 128) * 100.0 / 128, 1)} %";
+
+        var p07 = await FreezePid("07");
+        if (p07 is { Length: >= 2 })
+            result["LTFT Bank 1"] = $"{Math.Round((B(p07, 0) - 128) * 100.0 / 128, 1)} %";
+
+        var p0B = await FreezePid("0B");
+        if (p0B is { Length: >= 2 })
+            result["MAP"] = $"{B(p0B, 0)} кПа";
+
+        var p0C = await FreezePid("0C");
+        if (p0C is { Length: >= 4 })
+            result["RPM"] = ((B(p0C, 0) * 256 + B(p0C, 2)) / 4.0)
+                .ToString("0", CultureInfo.InvariantCulture);
+
+        var p0D = await FreezePid("0D");
+        if (p0D is { Length: >= 2 })
+            result["Скорость"] = $"{B(p0D, 0)} км/ч";
+
+        var p0F = await FreezePid("0F");
+        if (p0F is { Length: >= 2 })
+            result["Температура впуска"] = $"{B(p0F, 0) - 40} °C";
+
+        var p10 = await FreezePid("10");
+        if (p10 is { Length: >= 4 })
+            result["MAF"] = $"{(B(p10, 0) * 256 + B(p10, 2)) / 100.0:0.00} г/с";
+
+        var p11 = await FreezePid("11");
+        if (p11 is { Length: >= 2 })
+            result["Дроссель"] = $"{Math.Round(B(p11, 0) * 100.0 / 255, 1)} %";
+
+        return result;
+    }
+
+    public async Task<List<string>> Mode06MonitorResultsAsync(
+        int maxMonitorIds = 24,
+        CancellationToken ct = default)
+    {
+        var supported = new SortedSet<int>();
+
+        foreach (var start in new[] { 0x00, 0x20, 0x40, 0x60, 0x80, 0xA0, 0xC0, 0xE0 })
+        {
+            try
+            {
+                var mid = start.ToString("X2", CultureInfo.InvariantCulture);
+                var data = await ReadPidAsync("06" + mid, "46" + mid, ct);
+                if (data is not { Length: >= 8 }) continue;
+
+                var bitmap = Convert.ToUInt32(data[..8], 16);
+                for (var bit = 0; bit < 32; bit++)
+                    if ((bitmap & (1u << (31 - bit))) != 0)
+                        supported.Add(start + bit + 1);
+            }
+            catch { }
+        }
+
+        var rows = new List<string>();
+        foreach (var monitorId in supported.Take(Math.Max(1, maxMonitorIds)))
+        {
+            try
+            {
+                var mid = monitorId.ToString("X2", CultureInfo.InvariantCulture);
+                var raw = await CommandAsync("06" + mid, 1900, ct);
+                if (raw.Contains("NO DATA", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var hex = HexOnly(raw);
+                var responseMarker = hex.IndexOf("46" + mid, StringComparison.Ordinal);
+                if (responseMarker < 0) continue;
+
+                var payload = hex[responseMarker..];
+                rows.Add($"MID 0x{mid}: {GroupHex(payload, 2)}");
+            }
+            catch { }
+        }
+
+        return rows.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    public async Task<string> InUsePerformanceTrackingAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await CommandAsync("0908", 2200, ct);
+            if (raw.Contains("NO DATA", StringComparison.OrdinalIgnoreCase))
+                return "Не поддерживается";
+
+            var hex = HexOnly(raw);
+            var marker = hex.IndexOf("4908", StringComparison.Ordinal);
+            if (marker < 0) return "Не поддерживается";
+
+            var data = hex[(marker + 4)..];
+            if (data.StartsWith("01", StringComparison.Ordinal) && data.Length > 2)
+                data = data[2..];
+
+            var counters = new List<string>();
+            for (var i = 0; i + 3 < data.Length; i += 4)
+                counters.Add(data.Substring(i, 4));
+
+            return counters.Count == 0
+                ? "Не поддерживается"
+                : "16-bit counters (raw): " + string.Join(" ", counters);
+        }
+        catch
+        {
+            return "Не поддерживается";
+        }
+    }
+
     public async Task<IReadOnlyList<string>> SupportedPidsAsync(CancellationToken ct = default)
     {
         var supported = new List<string>();

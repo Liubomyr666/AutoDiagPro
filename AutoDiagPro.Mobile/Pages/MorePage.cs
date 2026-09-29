@@ -69,6 +69,7 @@ public sealed class MorePage : ContentPage
                         Item("Клиенты / CRM", "Клиенты, контакты и история", "workshopmanager", "Клиенты / CRM"),
                         Item("Запись клиентов", "Календарь и визиты", "workshopmanager", "Запись"),
                         Item("Счета / чеки", "Суммы и статус оплаты", "workshopmanager", "Счета / чеки"),
+                        Item("Сотрудники", "Механики, должности и навыки", "workshopmanager", "Сотрудники"),
                         Item("Склад", "Остатки и поступления", "inventory"),
                         Item("QR-приёмка деталей", "Приём и привязка к авто", "qrparts"),
                         Item("Управление СТО", "Заказ-наряды • статусы • сметы", "//workshop")

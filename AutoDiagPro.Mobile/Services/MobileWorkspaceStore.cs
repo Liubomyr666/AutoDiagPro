@@ -94,6 +94,9 @@ public sealed class MobileWorkspaceDatabase
     public List<MobileAppointmentRecord> Appointments { get; set; } = new();
     public List<MobileInvoiceRecord> Invoices { get; set; } = new();
     public List<WearCheckMobile> WearChecks { get; set; } = new();
+    public List<MobileNotificationRecord> Notifications { get; set; } = new();
+    public List<PendingScanUploadMobile> PendingScans { get; set; } = new();
+    public List<MobileEmployeeRecord> Employees { get; set; } = new();
 }
 
 public sealed class RepairCaseMobile
@@ -188,3 +191,39 @@ public sealed class WearCheckMobile
     public string Notes { get; set; } = "";
     public DateTimeOffset CheckedAt { get; set; } = DateTimeOffset.Now;
 }
+
+public sealed class MobileNotificationRecord
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid? VehicleId { get; set; }
+    public string Key { get; set; } = "";
+    public string Kind { get; set; } = "Инфо";
+    public string Title { get; set; } = "";
+    public string Message { get; set; } = "";
+    public bool IsRead { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
+}
+
+public sealed class PendingScanUploadMobile
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid VehicleId { get; set; }
+    public string Vin { get; set; } = "";
+    public string Adapter { get; set; } = "";
+    public string Protocol { get; set; } = "";
+    public int DtcCount { get; set; }
+    public string Summary { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
+}
+
+public sealed class MobileEmployeeRecord
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
+    public string Role { get; set; } = "Механик";
+    public string Phone { get; set; } = "";
+    public string Skills { get; set; } = "";
+    public bool Active { get; set; } = true;
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
+}
+

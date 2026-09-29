@@ -68,8 +68,17 @@ public sealed class NotificationsPage : ContentPage
         {
             var plan = db.ServicePlans.FirstOrDefault(x => x.VehicleId == vehicle.Id);
             if (plan?.NextServiceDate is DateTimeOffset date && date <= DateTimeOffset.Now.AddDays(30))
+            {
                 Add(vehicle.Id, $"service-date-{vehicle.Id}-{date:yyyyMMdd}", "ТО", "Скоро обслуживание",
                     $"План ТО: {date.LocalDateTime:dd.MM.yyyy}.");
+                var remindAt = date.AddDays(-1);
+                if (remindAt <= DateTimeOffset.Now) remindAt = DateTimeOffset.Now.AddMinutes(2);
+                await LocalNotificationService.ScheduleAsync(
+                    $"service-{vehicle.Id}-{date:yyyyMMdd}",
+                    "AutoDiag Pro • ТО",
+                    $"Обслуживание запланировано на {date.LocalDateTime:dd.MM.yyyy}.",
+                    remindAt);
+            }
 
             if (plan?.NextServiceMileageKm is long km && vehicle.MileageKm is long current && km - current <= 1500)
                 Add(vehicle.Id, $"service-km-{vehicle.Id}-{km}", "ТО", "Скоро обслуживание",
@@ -94,8 +103,18 @@ public sealed class NotificationsPage : ContentPage
                      x.Status != "Готово" &&
                      x.StartsAt >= DateTimeOffset.Now &&
                      x.StartsAt <= DateTimeOffset.Now.AddHours(48)))
+        {
             Add(appointment.VehicleId, $"appointment-{appointment.Id}", "ЗАПИСЬ", "Скоро запись на СТО",
                 $"{appointment.StartsAt.LocalDateTime:dd.MM HH:mm} • {appointment.Work}");
+
+            var remindAt = appointment.StartsAt.AddHours(-1);
+            if (remindAt <= DateTimeOffset.Now) remindAt = DateTimeOffset.Now.AddMinutes(2);
+            await LocalNotificationService.ScheduleAsync(
+                $"appointment-{appointment.Id}",
+                "AutoDiag Pro • Запись на СТО",
+                $"{appointment.StartsAt.LocalDateTime:dd.MM HH:mm} • {appointment.Work}",
+                remindAt);
+        }
 
         foreach (var invoice in db.Invoices.Where(x => !x.Paid))
             Add(invoice.VehicleId, $"invoice-{invoice.Id}", "СЧЁТ", "Есть неоплаченный счёт",

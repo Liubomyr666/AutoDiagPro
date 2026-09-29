@@ -134,9 +134,12 @@ public sealed class TimelinePage : ContentPage
     }, new Thickness(14), 16);
 
     private static string Mm(double? value) => value.HasValue ? value.Value.ToString("0.0") : "—";
-    private static string Short(string? text) => string.IsNullOrWhiteSpace(text)
-        ? ""
-        : text.Replace("\r", " ").Replace("\n", " ").Trim() is var s && s.Length > 220 ? s[..220] + "…" : s;
+    private static string Short(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        var value = text.Replace("\r", " ").Replace("\n", " ").Trim();
+        return value.Length > 220 ? value[..220] + "…" : value;
+    }
     private static string Join(params string?[] values) =>
         string.Join(" • ", values.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()));
     private static string FriendlyStatus(string? value) => string.IsNullOrWhiteSpace(value) ? "В работе" : value!;

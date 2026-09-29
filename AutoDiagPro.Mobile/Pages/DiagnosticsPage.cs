@@ -399,6 +399,9 @@ public sealed class DiagnosticsPage : ContentPage
             var readiness = await _obd.ReadinessAsync();
             var ecu = await _obd.EcuInfoAsync();
             var live = await _obd.LiveSnapshotAsync();
+            var freezeFrame = await _obd.FreezeFrameAsync();
+            var mode06 = await _obd.Mode06MonitorResultsAsync();
+            var iupr = await _obd.InUsePerformanceTrackingAsync();
 
             var identity = VehicleIdentityService.Decode(vin);
             var decoded = await TryDecodeVinAsync(identity.Vin);
@@ -410,7 +413,16 @@ public sealed class DiagnosticsPage : ContentPage
                 (dtc.Count == 0 ? "DTC: ошибок нет" : $"DTC: {string.Join(", ", dtc)}") +
                 "\n\nECU / CALIBRATION\n" + string.Join("\n", ecu.Select(x => $"{x.Key}: {x.Value}")) +
                 "\n\nREADINESS\n" + string.Join("\n", readiness.Select(x => $"{x.Key}: {x.Value}")) +
-                "\n\nLIVE DATA\n" + string.Join("\n", live.Select(x => $"{x.Key}: {x.Value}"));
+                "\n\nLIVE DATA\n" + string.Join("\n", live.Select(x => $"{x.Key}: {x.Value}")) +
+                "\n\nFREEZE FRAME\n" +
+                    (freezeFrame.Count == 0
+                        ? "Не поддерживается / ECU не сохранил freeze frame"
+                        : string.Join("\n", freezeFrame.Select(x => $"{x.Key}: {x.Value}"))) +
+                "\n\nMODE 06 MONITOR RESULTS (RAW)\n" +
+                    (mode06.Count == 0
+                        ? "Не поддерживается / monitor results не возвращены"
+                        : string.Join("\n", mode06.Take(32))) +
+                $"\n\nIUPR / MODE 09 PID 08\n{iupr}";
 
             var health = DiagnosticHealthService.Analyze(voltage, dtc, readiness, live);
             summary += "\n\nHEALTH SCORE\n" + health.Summary +

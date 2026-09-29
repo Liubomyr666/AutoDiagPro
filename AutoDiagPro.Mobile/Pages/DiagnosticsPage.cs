@@ -308,7 +308,7 @@ public sealed class DiagnosticsPage : ContentPage
                 _state.LastVin = identity.Vin;
                 var decoded = await TryDecodeVinAsync(identity.Vin);
                 var matched = await EnsureVehicleForVinAsync(identity, decoded);
-                ShowResult($"Автомобиль определён\nVIN: {identity.Vin}\nМарка: {Value(decoded?.Make, identity.Make)}\nМодель: {Value(decoded?.Model)}\nМодельный год: {decoded?.ParsedYear?.ToString() ?? identity.ModelYear?.ToString() ?? "—"}\nДвигатель: {Value(decoded?.Engine)}{Volume(decoded?.DisplacementL)}\nТопливо: {Value(decoded?.FuelType, Value(obdEngineType))}\nКоробка: {Value(decoded?.Transmission)}\nПривод: {Value(decoded?.DriveType)}\nКузов: {Value(decoded?.BodyClass)}\nРегион: {identity.Country}\nWMI: {identity.Wmi}\nИсточник: {Value(decoded?.Source, "VIN / ECU")}\nAutoDiag: {(matched is null ? "VIN определён, но автомобиль не синхронизирован" : "автомобиль выбран и синхронизирован")}");
+                ShowResult($"Автомобиль определён\nVIN: {identity.Vin}\nМарка: {Value(decoded?.Make, identity.Make)}\nМодель: {Value(decoded?.Model)}\nМодельный год: {decoded?.ParsedYear?.ToString() ?? identity.ModelYear?.ToString() ?? "—"}\nДвигатель: {Value(decoded?.Engine)}{Volume(decoded?.DisplacementL)}\nТопливо: {Value(decoded?.FuelType)}\nКоробка: {Value(decoded?.Transmission)}\nПривод: {Value(decoded?.DriveType)}\nКузов: {Value(decoded?.BodyClass)}\nРегион: {identity.Country}\nWMI: {identity.Wmi}\nИсточник: {Value(decoded?.Source, "VIN / ECU")}\nAutoDiag: {(matched is null ? "VIN определён, но автомобиль не синхронизирован" : "автомобиль выбран и синхронизирован")}");
             }
         }
         catch (Exception ex)
@@ -322,18 +322,28 @@ public sealed class DiagnosticsPage : ContentPage
         if (!RequireConnection()) return;
         try
         {
-            var codes = await _obd.DtcAsync();
-            _state.LastDtcCodes = codes;
-            _state.LastDiagnosticSummary = codes.Count == 0
-                ? "DTC: ошибок нет."
-                : "DTC: " + string.Join(", ", codes);
+            var confirmed = await _obd.DtcAsync();
+            var pending = await _obd.PendingDtcAsync();
+            var permanent = await _obd.PermanentDtcAsync();
+            var allCodes = confirmed
+                .Concat(pending)
+                .Concat(permanent)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var dtcText =
+                $"CONFIRMED: {(confirmed.Count == 0 ? "нет" : string.Join(", ", confirmed))}\n" +
+                $"PENDING: {(pending.Count == 0 ? "нет" : string.Join(", ", pending))}\n" +
+                $"PERMANENT: {(permanent.Count == 0 ? "нет" : string.Join(", ", permanent))}";
+
+            _state.LastDtcCodes = allCodes;
+            _state.LastDiagnosticSummary = "OBD-II DTC LAYERS\n" + dtcText;
             _state.LastDiagnosticAtUtc = DateTimeOffset.UtcNow;
 
-            var dtcText = codes.Count == 0 ? "DTC: ошибок нет." : "DTC найдены:";
-            if (codes.Count == 0)
-                ShowResult(dtcText);
+            if (allCodes.Count == 0)
+                ShowResult("DTC: ошибок нет.\n\n" + dtcText);
             else
-                await RenderDtcCardsAsync(dtcText, codes, runAiImmediately: true);
+                await RenderDtcCardsAsync("DTC найдены:\n\n" + dtcText, allCodes, runAiImmediately: true);
         }
         catch (Exception ex)
         {
@@ -357,12 +367,21 @@ public sealed class DiagnosticsPage : ContentPage
         {
             await _obd.ClearDtcAsync();
             await Task.Delay(900);
-            var remaining = await _obd.DtcAsync();
+            var confirmed = await _obd.DtcAsync();
+            var pending = await _obd.PendingDtcAsync();
+            var permanent = await _obd.PermanentDtcAsync();
+            var remaining = confirmed
+                .Concat(pending)
+                .Concat(permanent)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
             _state.LastDtcCodes = remaining;
             _state.LastDiagnosticAtUtc = DateTimeOffset.UtcNow;
             ShowResult(remaining.Count == 0
                 ? "DTC очищены. После поездки проверьте readiness и выполните контрольный scan."
-                : "После очистки остались/вернулись DTC: " + string.Join(", ", remaining),
+                : "После очистки остались DTC. Permanent-коды могут исчезнуть только после подтверждённых успешных циклов ECU:\n" +
+                  string.Join(", ", remaining),
                 remaining.Count > 0);
         }
         catch (Exception ex)
@@ -395,7 +414,14 @@ public sealed class DiagnosticsPage : ContentPage
             var vin = await _obd.VinAsync();
             var protocol = await _obd.ProtocolAsync();
             var voltage = await _obd.VoltageAsync();
-            var dtc = await _obd.DtcAsync();
+            var confirmedDtc = await _obd.DtcAsync();
+            var pendingDtc = await _obd.PendingDtcAsync();
+            var permanentDtc = await _obd.PermanentDtcAsync();
+            var allDtc = confirmedDtc
+                .Concat(pendingDtc)
+                .Concat(permanentDtc)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
             var readiness = await _obd.ReadinessAsync();
             var ecu = await _obd.EcuInfoAsync();
             var live = await _obd.LiveSnapshotAsync();
@@ -410,7 +436,9 @@ public sealed class DiagnosticsPage : ContentPage
                 : "";
             var summary =
                 $"VIN: {identity.Vin}\nМарка: {Value(decoded?.Make, identity.Make)}\nМодель: {Value(decoded?.Model)}\nМодельный год: {decoded?.ParsedYear?.ToString() ?? identity.ModelYear?.ToString() ?? "—"}\nДвигатель: {Value(decoded?.Engine)}{Volume(decoded?.DisplacementL)}\nТопливо: {Value(decoded?.FuelType)}\nКоробка: {Value(decoded?.Transmission)}\nПривод: {Value(decoded?.DriveType)}\nКузов: {Value(decoded?.BodyClass)}\nРегион: {identity.Country}\nПротокол: {protocol}\nНапряжение: {voltage}\n" +
-                (dtc.Count == 0 ? "DTC: ошибок нет" : $"DTC: {string.Join(", ", dtc)}") +
+                ($"CONFIRMED DTC: {(confirmedDtc.Count == 0 ? "нет" : string.Join(", ", confirmedDtc))}\n" +
+                 $"PENDING DTC: {(pendingDtc.Count == 0 ? "нет" : string.Join(", ", pendingDtc))}\n" +
+                 $"PERMANENT DTC: {(permanentDtc.Count == 0 ? "нет" : string.Join(", ", permanentDtc))}") +
                 "\n\nECU / CALIBRATION\n" + string.Join("\n", ecu.Select(x => $"{x.Key}: {x.Value}")) +
                 "\n\nREADINESS\n" + string.Join("\n", readiness.Select(x => $"{x.Key}: {x.Value}")) +
                 "\n\nLIVE DATA\n" + string.Join("\n", live.Select(x => $"{x.Key}: {x.Value}")) +
@@ -424,19 +452,19 @@ public sealed class DiagnosticsPage : ContentPage
                         : string.Join("\n", mode06.Take(32))) +
                 $"\n\nIUPR / MODE 09 PID 08\n{iupr}";
 
-            var health = DiagnosticHealthService.Analyze(voltage, dtc, readiness, live);
+            var health = DiagnosticHealthService.Analyze(voltage, allDtc, readiness, live);
             summary += "\n\nHEALTH SCORE\n" + health.Summary +
                        "\n• " + string.Join("\n• ", health.Findings);
 
             _state.LastDiagnosticSummary = summary;
-            _state.LastDtcCodes = dtc;
+            _state.LastDtcCodes = allDtc;
             _state.LastVin = vin;
             _state.LastDiagnosticAtUtc = DateTimeOffset.UtcNow;
 
-            if (dtc.Count == 0)
+            if (allDtc.Count == 0)
                 ShowResult(summary);
             else
-                await RenderDtcCardsAsync(summary, dtc, runAiImmediately: true);
+                await RenderDtcCardsAsync(summary, allDtc, runAiImmediately: true);
 
             var vehicle = await EnsureVehicleForVinAsync(identity, decoded);
             if (vehicle is not null)
@@ -448,14 +476,14 @@ public sealed class DiagnosticsPage : ContentPage
                     string.IsNullOrWhiteSpace(vin) ? vehicle.Vin : vin,
                     _obd.TransportName,
                     protocol,
-                    dtc.Count,
+                    allDtc.Count,
                     summary);
 
                 var syncText = uploaded
                     ? "✓ Scan сохранён на AutoDiag Server."
                     : "OFFLINE • Scan сохранён на iPhone и будет отправлен автоматически.";
 
-                if (dtc.Count == 0)
+                if (allDtc.Count == 0)
                     ShowResult(summary + "\n\n" + syncText);
                 else
                     _results.Add(Theme.MutedText(syncText));

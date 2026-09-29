@@ -48,6 +48,23 @@ public sealed class MobileWorkspaceStore
         }
     }
 
+    public async Task<string> ExportBackupAsync()
+    {
+        var db = await LoadAsync();
+        var path = Path.Combine(FileSystem.CacheDirectory,
+            $"AutoDiagPro_mobile_backup_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(db, _json));
+        return path;
+    }
+
+    public async Task ImportBackupAsync(string sourcePath)
+    {
+        var text = await File.ReadAllTextAsync(sourcePath);
+        var db = JsonSerializer.Deserialize<MobileWorkspaceDatabase>(text, _json)
+                 ?? throw new InvalidOperationException("Файл резервной копии повреждён.");
+        await SaveAsync(db);
+    }
+
     public async Task<RepairCaseMobile> GetOrCreateRepairCaseAsync(Guid vehicleId)
     {
         var db = await LoadAsync();

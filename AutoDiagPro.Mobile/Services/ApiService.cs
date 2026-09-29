@@ -97,6 +97,9 @@ public sealed class ApiService
     public Task<List<ServerVehicleRecord>> GetVehiclesAsync(CancellationToken ct = default) =>
         GetAuthorizedAsync<List<ServerVehicleRecord>>("api/vehicles", ct);
 
+    public Task<ServerVinDecodeRecord> DecodeVinAsync(string vin, CancellationToken ct = default) =>
+        GetAuthorizedAsync<ServerVinDecodeRecord>($"api/vin/decode/{Uri.EscapeDataString(vin.Trim().ToUpperInvariant())}", ct);
+
     public Task<List<ServerScanRecord>> GetScansAsync(CancellationToken ct = default) =>
         GetAuthorizedAsync<List<ServerScanRecord>>("api/scans", ct);
 

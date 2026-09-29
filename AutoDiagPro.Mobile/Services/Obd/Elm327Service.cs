@@ -349,18 +349,51 @@ public sealed class Elm327Service
             }
         }
 
+        async Task<List<string>> ReadDtcs()
+        {
+            try
+            {
+                var response = await CommandAsync("1902FF", 1800, ct);
+                var hex = HexOnly(response);
+                var marker = hex.IndexOf("5902", StringComparison.Ordinal);
+                if (marker < 0) return new List<string>();
+
+                var payload = hex[(marker + 4)..];
+                if (payload.Length < 2) return new List<string>();
+
+                payload = payload[2..]; // DTCStatusAvailabilityMask
+                var dtcs = new List<string>();
+                for (var i = 0; i + 7 < payload.Length; i += 8)
+                {
+                    var code = payload.Substring(i, 6);
+                    var status = payload.Substring(i + 6, 2);
+                    dtcs.Add($"0x{code} • status 0x{status}");
+                }
+
+                return dtcs;
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
         async Task Probe((string Address, string Name, string RequestId, string ResponseId) module)
         {
             try
             {
                 await CommandAsync("ATSH" + module.RequestId, 1200, ct);
 
+                var vin = await ReadDid("F190", 1600);
                 var part = await ReadDid("F187", 1600);
                 var asam = string.IsNullOrWhiteSpace(part)
                     ? await ReadDid("F19E", 1600)
                     : "";
 
-                var confirmed = !string.IsNullOrWhiteSpace(part) || !string.IsNullOrWhiteSpace(asam);
+                var confirmed =
+                    !string.IsNullOrWhiteSpace(vin) ||
+                    !string.IsNullOrWhiteSpace(part) ||
+                    !string.IsNullOrWhiteSpace(asam);
                 if (!confirmed)
                 {
                     result[$"{module.Address} {module.Name}"] =
@@ -373,9 +406,11 @@ public sealed class Elm327Service
                 if (string.IsNullOrWhiteSpace(asam))
                     asam = await ReadDid("F19E", 1400);
                 var system = await ReadDid("F197", 1400);
+                var dtcs = await ReadDtcs();
 
                 var identity = string.Join(" • ", new[]
                 {
+                    string.IsNullOrWhiteSpace(vin) ? "" : "VIN " + vin,
                     part,
                     string.IsNullOrWhiteSpace(sw) ? "" : "SW " + sw,
                     string.IsNullOrWhiteSpace(hw) ? "" : "HW " + hw,
@@ -383,9 +418,14 @@ public sealed class Elm327Service
                     system
                 }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
+                var dtcText = dtcs.Count == 0
+                    ? "DTC: нет возвращённых UDS записей / сервис не поддержан"
+                    : "DTC: " + string.Join(", ", dtcs.Take(12));
+
                 result[$"{module.Address} {module.Name}"] =
                     $"✓ подтверждён • {module.RequestId}/{module.ResponseId}" +
-                    (string.IsNullOrWhiteSpace(identity) ? "" : $" • {identity}");
+                    (string.IsNullOrWhiteSpace(identity) ? "" : $" • {identity}") +
+                    $" • {dtcText}";
             }
             catch (Exception ex)
             {

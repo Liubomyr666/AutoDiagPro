@@ -148,6 +148,20 @@ public sealed class EcuInfoPage : ContentPage
 
             if (!isVag)
             {
+                var commonUds = await _obd.CommonPowertrainUdsIdentityAsync();
+                _result.Add(Theme.CardView(new VerticalStackLayout
+                {
+                    Spacing = 7,
+                    Children =
+                    {
+                        Theme.Eyebrow("COMMON UDS POWERTRAIN • READ-ONLY"),
+                        Theme.MutedText("Для любой марки AutoDiag безопасно пробует common Engine/Transmission UDS candidates 7E0/7E8 и 7E1/7E9. ✓ ставится только после настоящего 0x62 ответа.")
+                    }
+                }));
+
+                foreach (var x in commonUds)
+                    _result.Add(Row(x.Key, x.Value));
+
                 var modules = MobileEcuPlatformCatalogService.GetModules(brand);
 
                 _result.Add(Theme.CardView(new VerticalStackLayout
@@ -171,9 +185,10 @@ public sealed class EcuInfoPage : ContentPage
                         $"△ {module.Purpose}\n{module.Requirement}"));
                 }
 
+                var commonConfirmed = commonUds.Values.Count(x => x.StartsWith("✓", StringComparison.Ordinal));
                 _status.Text = modules.Count == 0
-                    ? "Для этой марки нужен марочный интерфейс."
-                    : $"Карта ECU загружена: {modules.Count}. Подтверждённых блоков: 0.";
+                    ? $"Common UDS подтверждено: {commonConfirmed}. Для глубоких ECU нужен марочный интерфейс."
+                    : $"Карта ECU: {modules.Count}. Common UDS подтверждено: {commonConfirmed}.";
                 _status.TextColor = Theme.Accent;
                 return;
             }

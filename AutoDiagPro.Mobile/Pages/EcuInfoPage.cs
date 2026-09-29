@@ -135,6 +135,17 @@ public sealed class EcuInfoPage : ContentPage
 
             var isVag = brand is "Volkswagen" or "Audi" or "Škoda" or "SEAT" or "CUPRA" or "Porsche";
 
+            _result.Add(Theme.CardView(new VerticalStackLayout
+            {
+                Spacing = 7,
+                Children =
+                {
+                    Theme.Eyebrow("AUTO TRANSPORT ROUTER"),
+                    Theme.Body($"Марка: {brand ?? "не определена"} • {MobileEcuPlatformCatalogService.Group(brand)}"),
+                    Theme.MutedText(MobileDiagnosticRouteService.Describe(brand))
+                }
+            }));
+
             if (!isVag)
             {
                 var modules = MobileEcuPlatformCatalogService.GetModules(brand);

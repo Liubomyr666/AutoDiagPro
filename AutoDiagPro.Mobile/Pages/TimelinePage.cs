@@ -56,8 +56,13 @@ public sealed class TimelinePage : ContentPage
         {
             var scansTask = _api.GetScansAsync();
             var ordersTask = _api.GetWorkOrdersAsync();
+            var appointmentsTask = _api.GetAppointmentsAsync(vehicle.Id);
+            var invoicesTask = _api.GetInvoicesAsync(vehicle.Id);
+            var maintenanceTask = _api.GetMaintenanceAsync(vehicle.Id);
+            var partsTask = _api.GetInstalledPartsAsync(vehicle.Id);
+            var photosTask = _api.GetPhotosAsync(vehicle.Id);
             var dbTask = _store.LoadAsync();
-            await Task.WhenAll(scansTask, ordersTask, dbTask);
+            await Task.WhenAll(scansTask, ordersTask, appointmentsTask, invoicesTask, maintenanceTask, partsTask, photosTask, dbTask);
 
             foreach (var scan in (await scansTask).Where(x =>
                          x.VehicleId == vehicle.Id ||
@@ -70,21 +75,38 @@ public sealed class TimelinePage : ContentPage
             foreach (var order in (await ordersTask).Where(x => x.VehicleId == vehicle.Id))
                 events.Add(new(order.UpdatedAt, "РЕМОНТ",
                     $"{order.Number} • {FriendlyStatus(order.Status)}",
-                    $"{order.Title}{(order.TotalAmount > 0 ? $" • {order.TotalAmount:N2} €" : "")}"));
+                    $"{order.Title}{(order.TotalAmount > 0 ? $" • {order.TotalAmount:N2} €" : "")}" +
+                    (string.IsNullOrWhiteSpace(order.EstimateStatus) ? "" : $" • смета {order.EstimateStatus}")));
+
+            foreach (var item in await appointmentsTask)
+                events.Add(new(item.StartsAt, "ЗАПИСЬ", FriendlyStatus(item.Status),
+                    $"{item.Work} • {item.ClientName}"));
+
+            foreach (var item in await invoicesTask)
+                events.Add(new(item.UpdatedAt, "СЧЁТ",
+                    $"{item.Number} • {item.Amount:N2} € • {(item.Paid ? "ОПЛАЧЕНО" : "НЕ ОПЛАЧЕНО")}",
+                    item.Description ?? ""));
+
+            foreach (var item in await maintenanceTask)
+                events.Add(new(item.UpdatedAt, "ТО", item.Name,
+                    $"Следующее: {(item.DueMileage is null ? "—" : item.DueMileage.Value.ToString("N0") + " км")}" +
+                    (item.DueDate is null ? "" : $" • {item.DueDate:dd.MM.yyyy}") +
+                    (string.IsNullOrWhiteSpace(item.Notes) ? "" : $" • {item.Notes}")));
+
+            foreach (var item in await partsTask)
+                events.Add(new(item.InstalledAt, "ДЕТАЛЬ", item.Name,
+                    string.Join(" • ", new[] { item.Manufacturer, item.PartNumber, item.MechanicName }
+                        .Where(x => !string.IsNullOrWhiteSpace(x)))));
+
+            foreach (var item in await photosTask)
+                events.Add(new(item.CreatedAt, "ФОТО", item.Kind,
+                    string.IsNullOrWhiteSpace(item.Caption) ? "Фото автомобиля / ремонта" : item.Caption!));
 
             var db = await dbTask;
 
             foreach (var item in db.RepairCases.Where(x => x.VehicleId == vehicle.Id))
                 events.Add(new(item.UpdatedAt, "REPAIR BRAIN", item.Status,
                     Join(item.ConfirmedCause, item.RepairDone, item.Notes)));
-
-            foreach (var item in db.Appointments.Where(x => x.VehicleId == vehicle.Id))
-                events.Add(new(item.StartsAt, "ЗАПИСЬ", item.Status, item.Work));
-
-            foreach (var item in db.Invoices.Where(x => x.VehicleId == vehicle.Id))
-                events.Add(new(item.CreatedAt, "СЧЁТ",
-                    $"{item.Number} • {item.Amount:N2} € • {(item.Paid ? "ОПЛАЧЕНО" : "НЕ ОПЛАЧЕНО")}",
-                    item.Description));
 
             foreach (var item in db.ReceivedParts.Where(x => x.VehicleId == vehicle.Id))
                 events.Add(new(item.ReceivedAt, "ДЕТАЛЬ", item.Name,

@@ -8,6 +8,7 @@ public sealed class DiagnosticsPage : ContentPage
     private readonly Elm327Service _obd = AppServices.Get<Elm327Service>();
     private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
+    private readonly MobileWorkspaceStore _store = AppServices.Get<MobileWorkspaceStore>();
 
     private readonly Entry _host = new() { Text = Preferences.Default.Get("obd_host", "192.168.0.10"), Placeholder = "IP адаптера" };
     private readonly Entry _port = new() { Text = Preferences.Default.Get("obd_port", 35000).ToString(), Placeholder = "Порт", Keyboard = Keyboard.Numeric };
@@ -62,9 +63,17 @@ public sealed class DiagnosticsPage : ContentPage
         ShowResult("Результаты появятся здесь.");
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
+
+        try
+        {
+            var flushed = await OfflineSyncService.FlushAsync(_api, _store);
+            if (flushed > 0)
+                ShowResult($"Синхронизировано offline scan: {flushed}.");
+        }
+        catch { }
 
         var selected = _state.SelectedVehicle;
         _vehicle.Text = selected is null
@@ -393,6 +402,10 @@ public sealed class DiagnosticsPage : ContentPage
                 "\n\nREADINESS\n" + string.Join("\n", readiness.Select(x => $"{x.Key}: {x.Value}")) +
                 "\n\nLIVE DATA\n" + string.Join("\n", live.Select(x => $"{x.Key}: {x.Value}"));
 
+            var health = DiagnosticHealthService.Analyze(voltage, dtc, readiness, live);
+            summary += "\n\nHEALTH SCORE\n" + health.Summary +
+                       "\n• " + string.Join("\n• ", health.Findings);
+
             _state.LastDiagnosticSummary = summary;
             _state.LastDtcCodes = dtc;
             _state.LastVin = vin;
@@ -406,7 +419,9 @@ public sealed class DiagnosticsPage : ContentPage
             var vehicle = _state.SelectedVehicle;
             if (vehicle is not null)
             {
-                await _api.UploadScanAsync(
+                var uploaded = await OfflineSyncService.UploadOrQueueScanAsync(
+                    _api,
+                    _store,
                     vehicle.Id,
                     string.IsNullOrWhiteSpace(vin) ? vehicle.Vin : vin,
                     _obd.TransportName,
@@ -414,10 +429,14 @@ public sealed class DiagnosticsPage : ContentPage
                     dtc.Count,
                     summary);
 
+                var syncText = uploaded
+                    ? "✓ Scan сохранён на AutoDiag Server."
+                    : "OFFLINE • Scan сохранён на iPhone и будет отправлен автоматически.";
+
                 if (dtc.Count == 0)
-                    ShowResult(summary + "\n\n✓ Scan сохранён на AutoDiag Server.");
+                    ShowResult(summary + "\n\n" + syncText);
                 else
-                    _results.Add(Theme.MutedText("✓ Scan сохранён на AutoDiag Server."));
+                    _results.Add(Theme.MutedText(syncText));
             }
 
             _vehicle.Text = $"VIN • {(string.IsNullOrWhiteSpace(vin) ? "—" : vin)}";

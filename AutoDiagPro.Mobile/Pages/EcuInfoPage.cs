@@ -181,6 +181,18 @@ public sealed class EcuInfoPage : ContentPage
             foreach (var x in topology)
                 _result.Add(Row(x.Key, x.Value));
 
+            _result.Add(Theme.CardView(new VerticalStackLayout
+            {
+                Spacing = 7,
+                Children =
+                {
+                    Theme.Eyebrow("VAG • J2534 / PQ46"),
+                    Theme.MutedText(
+                        "Если Gateway/ABS/Airbag не подтверждаются через BLE/Wi-Fi ELM, Windows AutoDiag умеет запускать тот же read-only UDS scan через native J2534 PassThru. " +
+                        "Для старых Passat B6/PQ46 блоков на KWP/TP2.0 нужен отдельный марочный transport; они не помечаются неисправными только из-за отсутствия UDS-ответа.")
+                }
+            }));
+
             _status.Text = "VAG installed ECU scan завершён без записи.";
             _status.TextColor = Theme.Green;
         }

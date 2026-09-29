@@ -5,6 +5,7 @@ namespace AutoDiagPro.Mobile.Pages;
 
 public sealed class EcuInfoPage : ContentPage
 {
+    private readonly MobileState _state = AppServices.Get<MobileState>();
     private readonly Elm327Service _obd = AppServices.Get<Elm327Service>();
     private readonly VerticalStackLayout _result = new() { Spacing = 9 };
     private readonly Label _status = Theme.MutedText("Ожидание OBD.");
@@ -24,6 +25,9 @@ public sealed class EcuInfoPage : ContentPage
         var readiness = Theme.SecondaryButton("Readiness");
         readiness.Clicked += async (_, _) => await ReadinessAsync();
 
+        var brandScan = Theme.SecondaryButton("Марочный ECU scan");
+        brandScan.Clicked += async (_, _) => await BrandScanAsync();
+
         Content = new ScrollView
         {
             Content = new VerticalStackLayout
@@ -35,7 +39,7 @@ public sealed class EcuInfoPage : ContentPage
                     Theme.Eyebrow("ECU INSPECTOR"),
                     Theme.H1("Блок управления"),
                     Theme.MutedText("Чтение стандартной OBD-II идентификации: VIN, протокол, Calibration ID, CVN, ECU Name и readiness."),
-                    read, pids, readiness, _status, _result
+                    read, pids, readiness, brandScan, _status, _result
                 }
             }
         };
@@ -105,6 +109,64 @@ public sealed class EcuInfoPage : ContentPage
             foreach (var x in data)
                 _result.Add(Row(x.Key, x.Value));
             _status.Text = "Readiness прочитан.";
+            _status.TextColor = Theme.Green;
+        }
+        catch (Exception ex)
+        {
+            _status.Text = ex.Message;
+            _status.TextColor = Theme.Red;
+        }
+    }
+
+    private async Task BrandScanAsync()
+    {
+        if (!Check()) return;
+
+        _result.Clear();
+        _status.Text = "Проверяю марочный ECU-профиль...";
+        _status.TextColor = Theme.Accent;
+
+        try
+        {
+            var vin = await _obd.VinAsync();
+            var brand = _state.SelectedVehicle?.Make;
+            if (string.IsNullOrWhiteSpace(brand) && !string.IsNullOrWhiteSpace(vin))
+                brand = VehicleIdentityService.Decode(vin).Make;
+
+            var isVag = brand is "Volkswagen" or "Audi" or "Škoda" or "SEAT" or "CUPRA" or "Porsche";
+
+            if (!isVag)
+            {
+                _result.Add(Theme.CardView(new VerticalStackLayout
+                {
+                    Spacing = 7,
+                    Children =
+                    {
+                        Theme.Eyebrow("BRAND ECU SCAN"),
+                        Theme.Body($"Марка: {brand ?? "не определена"}"),
+                        Theme.MutedText("На iPhone через BLE/Wi-Fi ELM сейчас включён безопасный VAG Engine/TCU read-only scan. Для BMW EDIABAS/K+DCAN/ENET и остальных OEM-протоколов нужен соответствующий марочный транспорт; AutoDiag не будет угадывать адреса блоков.")
+                    }
+                }));
+                _status.Text = "Для этой марки нужен марочный интерфейс.";
+                _status.TextColor = Theme.Accent;
+                return;
+            }
+
+            var topology = await _obd.VagPowertrainTopologyAsync();
+            _result.Add(Theme.CardView(new VerticalStackLayout
+            {
+                Spacing = 7,
+                Children =
+                {
+                    Theme.Eyebrow("VAG ECU TOPOLOGY • READ-ONLY"),
+                    Theme.MutedText("✓ = блок реально ответил. △ = профиль известен, но текущий интерфейс не подтверждает блок.")
+                }
+            }));
+
+            foreach (var x in topology)
+                _result.Add(Row(x.Key, x.Value));
+
+            _status.Text = "Марочный VAG scan завершён без записи.";
             _status.TextColor = Theme.Green;
         }
         catch (Exception ex)

@@ -82,6 +82,119 @@ public sealed class Elm327Service
         return DecodeMode09Ascii(raw, "4902", 17);
     }
 
+    public async Task<Dictionary<string, string>> CommonPowertrainUdsIdentityAsync(CancellationToken ct = default)
+    {
+        if (!IsConnected)
+            throw new InvalidOperationException("OBD не подключён.");
+
+        var result = new Dictionary<string, string>();
+        var modules = new (string Name, string RequestId, string ResponseId)[]
+        {
+            ("Engine / Powertrain ECU", "7E0", "7E8"),
+            ("Transmission ECU", "7E1", "7E9")
+        };
+
+        static string DecodeAsciiFromResponse(string raw, string did)
+        {
+            var hex = HexOnly(raw);
+            var marker = hex.IndexOf("62" + did, StringComparison.Ordinal);
+            if (marker < 0) return "";
+
+            var payload = hex[(marker + 2 + did.Length)..];
+            var bytes = HexBytes(payload);
+            return new string(Encoding.ASCII.GetString(bytes)
+                .Where(ch => !char.IsControl(ch) && ch >= 32 && ch <= 126)
+                .ToArray()).Trim();
+        }
+
+        async Task<string> ReadDid(string did, int timeout = 1500)
+        {
+            try
+            {
+                var response = await CommandAsync("22" + did, timeout, ct);
+                if (response.Contains("NO DATA", StringComparison.OrdinalIgnoreCase))
+                    return "";
+                return DecodeAsciiFromResponse(response, did);
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        async Task Probe((string Name, string RequestId, string ResponseId) module)
+        {
+            try
+            {
+                await CommandAsync("ATSH" + module.RequestId, 1200, ct);
+
+                var vin = await ReadDid("F190", 1600);
+                var part = await ReadDid("F187", 1600);
+                var asam = string.IsNullOrWhiteSpace(part)
+                    ? await ReadDid("F19E", 1600)
+                    : "";
+
+                var confirmed =
+                    !string.IsNullOrWhiteSpace(vin) ||
+                    !string.IsNullOrWhiteSpace(part) ||
+                    !string.IsNullOrWhiteSpace(asam);
+
+                if (!confirmed)
+                {
+                    result[module.Name] =
+                        $"○ не подтверждён • {module.RequestId}/{module.ResponseId}";
+                    return;
+                }
+
+                var sw = await ReadDid("F189", 1400);
+                var hw = await ReadDid("F191", 1400);
+                if (string.IsNullOrWhiteSpace(asam))
+                    asam = await ReadDid("F19E", 1400);
+                var system = await ReadDid("F197", 1400);
+
+                var identity = string.Join(" • ", new[]
+                {
+                    string.IsNullOrWhiteSpace(vin) ? "" : "VIN " + vin,
+                    part,
+                    string.IsNullOrWhiteSpace(sw) ? "" : "SW " + sw,
+                    string.IsNullOrWhiteSpace(hw) ? "" : "HW " + hw,
+                    asam,
+                    system
+                }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+                result[module.Name] =
+                    $"✓ подтверждён • {module.RequestId}/{module.ResponseId}" +
+                    (string.IsNullOrWhiteSpace(identity) ? "" : $" • {identity}");
+            }
+            catch (Exception ex)
+            {
+                result[module.Name] = "○ " + ex.Message;
+            }
+        }
+
+        try
+        {
+            await CommandAsync("ATSP6", 1200, ct);
+            await CommandAsync("ATH0", 1200, ct);
+            await CommandAsync("ATS0", 1200, ct);
+            await CommandAsync("ATL0", 1200, ct);
+            await CommandAsync("ATCAF1", 1200, ct);
+
+            foreach (var module in modules)
+                await Probe(module);
+        }
+        finally
+        {
+            try { await CommandAsync("ATSH7DF", 1000, ct); } catch { }
+            try { await CommandAsync("ATH0", 1000, ct); } catch { }
+            try { await CommandAsync("ATSP0", 1200, ct); } catch { }
+        }
+
+        var confirmedCount = result.Values.Count(x => x.StartsWith("✓", StringComparison.Ordinal));
+        result["ИТОГ"] = $"Common UDS powertrain: {confirmedCount} из {modules.Length}";
+        return result;
+    }
+
     public async Task<Dictionary<string, string>> VagPowertrainTopologyAsync(CancellationToken ct = default)
     {
         if (!IsConnected)

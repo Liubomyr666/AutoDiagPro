@@ -119,7 +119,7 @@ public sealed class WorkshopPage : ContentPage
         };
         grid.Add(Stat("Открытые работы", _statOpen), 0, 0);
         grid.Add(Stat("Оплачено сегодня", _statRevenue), 1, 0);
-        grid.Add(Stat("Записи", _statAppointments), 0, 1);
+        grid.Add(Stat("Записи сегодня", _statAppointments), 0, 1);
         grid.Add(Stat("Клиенты", _statClients), 1, 1);
         grid.Add(Stat("Неоплаченные счета", _statUnpaid), 0, 2);
         return new VerticalStackLayout { Spacing = 9, Children = { Theme.H2("Статистика СТО"), grid } };
@@ -666,12 +666,17 @@ public sealed class WorkshopPage : ContentPage
         {
             var listTask = _api.GetWorkOrdersAsync();
             var dashboardTask = _api.GetDashboardAsync();
-            await Task.WhenAll(listTask, dashboardTask);
+            var appointmentsTask = _api.GetAppointmentsAsync();
+            await Task.WhenAll(listTask, dashboardTask, appointmentsTask);
             var list = await listTask;
             var dashboard = await dashboardTask;
+            var appointments = await appointmentsTask;
             _statOpen.Text = dashboard.ActiveOrders.ToString();
             _statRevenue.Text = dashboard.PaidToday.ToString("N2") + " €";
-            _statAppointments.Text = dashboard.ReadyOrders.ToString();
+            _statAppointments.Text = appointments.Count(x =>
+                x.StartsAt.LocalDateTime.Date == DateTime.Today &&
+                !string.Equals(x.Status, "Cancelled", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(x.Status, "Отменено", StringComparison.OrdinalIgnoreCase)).ToString();
             _statClients.Text = dashboard.Clients.ToString();
             _statUnpaid.Text = dashboard.UnpaidInvoices.ToString();
 

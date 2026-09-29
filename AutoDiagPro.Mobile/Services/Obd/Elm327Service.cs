@@ -122,6 +122,37 @@ public sealed class Elm327Service
             }
         }
 
+        async Task<List<string>> ReadDtcs()
+        {
+            try
+            {
+                var response = await CommandAsync("1902FF", 1800, ct);
+                var hex = HexOnly(response);
+                var marker = hex.IndexOf("5902", StringComparison.Ordinal);
+                if (marker < 0) return new List<string>();
+
+                var payload = hex[(marker + 4)..];
+                if (payload.Length < 2) return new List<string>();
+
+                // First byte after 59 02 is DTCStatusAvailabilityMask.
+                payload = payload[2..];
+
+                var dtcs = new List<string>();
+                for (var i = 0; i + 7 < payload.Length; i += 8)
+                {
+                    var code = payload.Substring(i, 6);
+                    var status = payload.Substring(i + 6, 2);
+                    dtcs.Add($"0x{code} • status 0x{status}");
+                }
+
+                return dtcs;
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
         async Task Probe((string Name, string RequestId, string ResponseId) module)
         {
             try
@@ -151,6 +182,7 @@ public sealed class Elm327Service
                 if (string.IsNullOrWhiteSpace(asam))
                     asam = await ReadDid("F19E", 1400);
                 var system = await ReadDid("F197", 1400);
+                var dtcs = await ReadDtcs();
 
                 var identity = string.Join(" • ", new[]
                 {
@@ -162,9 +194,14 @@ public sealed class Elm327Service
                     system
                 }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
+                var dtcText = dtcs.Count == 0
+                    ? "DTC: нет возвращённых UDS записей / сервис не поддержан"
+                    : "DTC: " + string.Join(", ", dtcs.Take(12));
+
                 result[module.Name] =
                     $"✓ подтверждён • {module.RequestId}/{module.ResponseId}" +
-                    (string.IsNullOrWhiteSpace(identity) ? "" : $" • {identity}");
+                    (string.IsNullOrWhiteSpace(identity) ? "" : $" • {identity}") +
+                    $" • {dtcText}";
             }
             catch (Exception ex)
             {

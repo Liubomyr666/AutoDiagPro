@@ -217,8 +217,10 @@ public sealed class VehiclesPage : ContentPage
         grid.Add(ActionButton("Детали по VIN", "parts"), 1, 0);
         grid.Add(ActionButton("Пробег / OBD", "mileage"), 0, 1);
         grid.Add(ActionButton("Шины / колодки", "wear"), 1, 1);
-        grid.Add(ActionButton("VIN / комплектация", "vininfo"), 0, 2);
+        grid.Add(ActionButton("VIN / комплектация", "vehicleidentity"), 0, 2);
         grid.Add(ActionButton("Отчёт / сравнение", "reports"), 1, 2);
+        grid.Add(ActionButton("Вся история", "timeline"), 0, 3);
+        grid.Add(ActionButton("Уведомления", "notifications"), 1, 3);
 
         return new VerticalStackLayout
         {

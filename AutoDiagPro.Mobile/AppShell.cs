@@ -26,6 +26,9 @@ public sealed class AppShell : Shell
         Routing.RegisterRoute("mileage", typeof(MileagePage));
         Routing.RegisterRoute("wear", typeof(WearPage));
         Routing.RegisterRoute("inventory", typeof(InventoryPage));
+        Routing.RegisterRoute("timeline", typeof(TimelinePage));
+        Routing.RegisterRoute("notifications", typeof(NotificationsPage));
+        Routing.RegisterRoute("vehicleidentity", typeof(VehicleIdentityPage));
         Routing.RegisterRoute("diesel", typeof(DieselPage));
         Routing.RegisterRoute("injectors", typeof(InjectorPage));
 

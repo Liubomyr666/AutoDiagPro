@@ -72,8 +72,23 @@ jobs:
           device, app_path = sys.argv[1], sys.argv[2]
           bundle = "com.autodiagpro.app"
 
-          subprocess.run(["xcrun","simctl","bootstatus",device,"-b"], timeout=180, check=True)
-          subprocess.run(["xcrun","simctl","install",device,app_path], timeout=180, check=True)
+          booted = False
+          for attempt in range(2):
+              try:
+                  subprocess.run(["xcrun","simctl","bootstatus",device,"-b"], timeout=360, check=True)
+                  booted = True
+                  break
+              except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+                  if attempt == 0:
+                      subprocess.run(["xcrun","simctl","shutdown",device], check=False)
+                      time.sleep(6)
+                      subprocess.run(["xcrun","simctl","boot",device], check=False)
+                  else:
+                      raise
+          if not booted:
+              raise SystemExit("Simulator did not reach booted state.")
+
+          subprocess.run(["xcrun","simctl","install",device,app_path], timeout=240, check=True)
 
           launch_text = ""
           proc = subprocess.Popen(
@@ -122,7 +137,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: AutoDiagPro-iOS-v3.20.0-client-ui-smoke
+          name: AutoDiagPro-iOS-v3.21.0-client-ui-smoke
           path: |
             screenshot.png
             launch.txt

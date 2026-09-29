@@ -306,8 +306,9 @@ public sealed class DiagnosticsPage : ContentPage
             if (!string.IsNullOrWhiteSpace(vin))
             {
                 _state.LastVin = identity.Vin;
-                var matched = await EnsureVehicleForVinAsync(identity);
-                ShowResult($"Автомобиль определён\nVIN: {identity.Vin}\nМарка: {identity.Make}\nМодельный год: {identity.ModelYear?.ToString() ?? "—"}\nРегион: {identity.Country}\nWMI: {identity.Wmi}\nAutoDiag: {(matched is null ? "VIN определён, но автомобиль не синхронизирован" : "автомобиль выбран и синхронизирован")}");
+                var decoded = await TryDecodeVinAsync(identity.Vin);
+                var matched = await EnsureVehicleForVinAsync(identity, decoded);
+                ShowResult($"Автомобиль определён\nVIN: {identity.Vin}\nМарка: {Value(decoded?.Make, identity.Make)}\nМодель: {Value(decoded?.Model)}\nМодельный год: {decoded?.ParsedYear?.ToString() ?? identity.ModelYear?.ToString() ?? "—"}\nДвигатель: {Value(decoded?.Engine)}{Volume(decoded?.DisplacementL)}\nТопливо: {Value(decoded?.FuelType)}\nКоробка: {Value(decoded?.Transmission)}\nПривод: {Value(decoded?.DriveType)}\nКузов: {Value(decoded?.BodyClass)}\nРегион: {identity.Country}\nWMI: {identity.Wmi}\nИсточник: {Value(decoded?.Source, "VIN / ECU")}\nAutoDiag: {(matched is null ? "VIN определён, но автомобиль не синхронизирован" : "автомобиль выбран и синхронизирован")}");
             }
         }
         catch (Exception ex)
@@ -400,8 +401,9 @@ public sealed class DiagnosticsPage : ContentPage
             var live = await _obd.LiveSnapshotAsync();
 
             var identity = VehicleIdentityService.Decode(vin);
+            var decoded = await TryDecodeVinAsync(identity.Vin);
             var summary =
-                $"VIN: {identity.Vin}\nМарка: {identity.Make}\nМодельный год: {identity.ModelYear?.ToString() ?? "—"}\nРегион: {identity.Country}\nПротокол: {protocol}\nНапряжение: {voltage}\n" +
+                $"VIN: {identity.Vin}\nМарка: {Value(decoded?.Make, identity.Make)}\nМодель: {Value(decoded?.Model)}\nМодельный год: {decoded?.ParsedYear?.ToString() ?? identity.ModelYear?.ToString() ?? "—"}\nДвигатель: {Value(decoded?.Engine)}{Volume(decoded?.DisplacementL)}\nТопливо: {Value(decoded?.FuelType)}\nКоробка: {Value(decoded?.Transmission)}\nПривод: {Value(decoded?.DriveType)}\nКузов: {Value(decoded?.BodyClass)}\nРегион: {identity.Country}\nПротокол: {protocol}\nНапряжение: {voltage}\n" +
                 (dtc.Count == 0 ? "DTC: ошибок нет" : $"DTC: {string.Join(", ", dtc)}") +
                 "\n\nECU / CALIBRATION\n" + string.Join("\n", ecu.Select(x => $"{x.Key}: {x.Value}")) +
                 "\n\nREADINESS\n" + string.Join("\n", readiness.Select(x => $"{x.Key}: {x.Value}")) +
@@ -421,7 +423,7 @@ public sealed class DiagnosticsPage : ContentPage
             else
                 await RenderDtcCardsAsync(summary, dtc, runAiImmediately: true);
 
-            var vehicle = await EnsureVehicleForVinAsync(identity);
+            var vehicle = await EnsureVehicleForVinAsync(identity, decoded);
             if (vehicle is not null)
             {
                 var uploaded = await OfflineSyncService.UploadOrQueueScanAsync(
@@ -444,7 +446,9 @@ public sealed class DiagnosticsPage : ContentPage
                     _results.Add(Theme.MutedText(syncText));
             }
 
-            _vehicle.Text = $"VIN • {(string.IsNullOrWhiteSpace(vin) ? "—" : vin)}";
+            _vehicle.Text = string.IsNullOrWhiteSpace(vin)
+                ? "VIN • —"
+                : $"VIN • {vin} • {Value(decoded?.Make, identity.Make)} {Value(decoded?.Model, "")}".Trim();
             _protocol.Text = "Протокол • " + protocol;
             _voltage.Text = "Напряжение • " + voltage;
         }
@@ -579,7 +583,17 @@ public sealed class DiagnosticsPage : ContentPage
         return (await _api.AskAiAsync(question, context, true)).Answer;
     }
 
-    private async Task<ServerVehicleRecord?> EnsureVehicleForVinAsync(VehicleIdentityResult identity)
+    private async Task<ServerVinDecodeRecord?> TryDecodeVinAsync(string vin)
+    {
+        var normalized = VehicleIdentityService.Normalize(vin);
+        if (normalized.Length != 17 || !_api.IsLoggedIn) return null;
+        try { return await _api.DecodeVinAsync(normalized); }
+        catch { return null; }
+    }
+
+    private async Task<ServerVehicleRecord?> EnsureVehicleForVinAsync(
+        VehicleIdentityResult identity,
+        ServerVinDecodeRecord? decoded = null)
     {
         if (!identity.IsValid) return _state.SelectedVehicle;
 
@@ -588,6 +602,9 @@ public sealed class DiagnosticsPage : ContentPage
 
         if (existing is not null)
         {
+            if (string.IsNullOrWhiteSpace(existing.Make) && !string.IsNullOrWhiteSpace(decoded?.Make)) existing.Make = decoded!.Make;
+            if (string.IsNullOrWhiteSpace(existing.Model) && !string.IsNullOrWhiteSpace(decoded?.Model)) existing.Model = decoded!.Model;
+            if (existing.Year is null) existing.Year = decoded?.ParsedYear ?? identity.ModelYear;
             _state.SelectedVehicle = existing;
             return existing;
         }
@@ -597,8 +614,11 @@ public sealed class DiagnosticsPage : ContentPage
             var id = await _api.CreateVehicleAsync(new ServerVehicleCreate
             {
                 Vin = identity.Vin,
-                Make = string.Equals(identity.Make, "Не определено", StringComparison.OrdinalIgnoreCase) ? null : identity.Make,
-                Year = identity.ModelYear
+                Make = !string.IsNullOrWhiteSpace(decoded?.Make)
+                    ? decoded!.Make
+                    : string.Equals(identity.Make, "Не определено", StringComparison.OrdinalIgnoreCase) ? null : identity.Make,
+                Model = string.IsNullOrWhiteSpace(decoded?.Model) ? null : decoded!.Model,
+                Year = decoded?.ParsedYear ?? identity.ModelYear
             });
 
             var vehicles = await _api.GetVehiclesAsync();
@@ -614,6 +634,12 @@ public sealed class DiagnosticsPage : ContentPage
             return _state.SelectedVehicle;
         }
     }
+
+    private static string Value(string? value, string fallback = "—") =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+
+    private static string Volume(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "" : $" • {value.Trim()} л";
 
     private bool RequireConnection()
     {

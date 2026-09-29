@@ -321,6 +321,9 @@ public sealed class ApiService
     public Task<List<ServerTenantRecord>> GetTenantsAsync(CancellationToken ct = default) =>
         GetAuthorizedAsync<List<ServerTenantRecord>>("api/platform/tenants", ct);
 
+    public Task<List<ServerAuditRecord>> GetAuditAsync(CancellationToken ct = default) =>
+        GetAuthorizedAsync<List<ServerAuditRecord>>("api/audit", ct);
+
     public async Task<Guid> CreateVehicleAsync(ServerVehicleCreate request, CancellationToken ct = default)
     {
         var created = await PostAuthorizedAsync<CreatedIdResponse>("api/vehicles", request, ct);

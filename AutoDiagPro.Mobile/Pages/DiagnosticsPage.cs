@@ -308,7 +308,7 @@ public sealed class DiagnosticsPage : ContentPage
                 _state.LastVin = identity.Vin;
                 var decoded = await TryDecodeVinAsync(identity.Vin);
                 var matched = await EnsureVehicleForVinAsync(identity, decoded);
-                ShowResult($"Автомобиль определён\nVIN: {identity.Vin}\nМарка: {Value(decoded?.Make, identity.Make)}\nМодель: {Value(decoded?.Model)}\nМодельный год: {decoded?.ParsedYear?.ToString() ?? identity.ModelYear?.ToString() ?? "—"}\nДвигатель: {Value(decoded?.Engine)}{Volume(decoded?.DisplacementL)}\nТопливо: {Value(decoded?.FuelType)}\nКоробка: {Value(decoded?.Transmission)}\nПривод: {Value(decoded?.DriveType)}\nКузов: {Value(decoded?.BodyClass)}\nРегион: {identity.Country}\nWMI: {identity.Wmi}\nИсточник: {Value(decoded?.Source, "VIN / ECU")}\nAutoDiag: {(matched is null ? "VIN определён, но автомобиль не синхронизирован" : "автомобиль выбран и синхронизирован")}");
+                ShowResult($"Автомобиль определён\nVIN: {identity.Vin}\nМарка: {Value(decoded?.Make, identity.Make)}\nМодель: {Value(decoded?.Model)}\nМодельный год: {decoded?.ParsedYear?.ToString() ?? identity.ModelYear?.ToString() ?? "—"}\nДвигатель: {Value(decoded?.Engine)}{Volume(decoded?.DisplacementL)}\nТопливо: {Value(decoded?.FuelType, Value(obdEngineType))}\nКоробка: {Value(decoded?.Transmission)}\nПривод: {Value(decoded?.DriveType)}\nКузов: {Value(decoded?.BodyClass)}\nРегион: {identity.Country}\nWMI: {identity.Wmi}\nИсточник: {Value(decoded?.Source, "VIN / ECU")}\nAutoDiag: {(matched is null ? "VIN определён, но автомобиль не синхронизирован" : "автомобиль выбран и синхронизирован")}");
             }
         }
         catch (Exception ex)
@@ -402,6 +402,9 @@ public sealed class DiagnosticsPage : ContentPage
 
             var identity = VehicleIdentityService.Decode(vin);
             var decoded = await TryDecodeVinAsync(identity.Vin);
+            var obdEngineType = readiness.TryGetValue("Тип двигателя", out var detectedEngineType)
+                ? detectedEngineType
+                : "";
             var summary =
                 $"VIN: {identity.Vin}\nМарка: {Value(decoded?.Make, identity.Make)}\nМодель: {Value(decoded?.Model)}\nМодельный год: {decoded?.ParsedYear?.ToString() ?? identity.ModelYear?.ToString() ?? "—"}\nДвигатель: {Value(decoded?.Engine)}{Volume(decoded?.DisplacementL)}\nТопливо: {Value(decoded?.FuelType)}\nКоробка: {Value(decoded?.Transmission)}\nПривод: {Value(decoded?.DriveType)}\nКузов: {Value(decoded?.BodyClass)}\nРегион: {identity.Country}\nПротокол: {protocol}\nНапряжение: {voltage}\n" +
                 (dtc.Count == 0 ? "DTC: ошибок нет" : $"DTC: {string.Join(", ", dtc)}") +

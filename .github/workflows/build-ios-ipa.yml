@@ -1,5 +1,5 @@
 name: Build AutoDiag Pro iOS IPA
-# Release: AutoDiag Pro iOS 3.8.0 build 30
+# Release: AutoDiag Pro iOS 3.9.0 build 31
 
 on:
   workflow_dispatch:
@@ -55,13 +55,13 @@ jobs:
           mkdir -p ipa/Payload
           cp -R "$APP_PATH" ipa/Payload/
           cd ipa
-          /usr/bin/zip -qry ../AutoDiagPro_iOS_v3.8.0_build30_AltStore.ipa Payload
+          /usr/bin/zip -qry ../AutoDiagPro_iOS_v3.9.0_build31_AltStore.ipa Payload
           cd ..
-          ls -lh AutoDiagPro_iOS_v3.8.0_build30_AltStore.ipa
+          ls -lh AutoDiagPro_iOS_v3.9.0_build31_AltStore.ipa
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: AutoDiagPro-iOS-v3.8.0-build30-AltStore
-          path: AutoDiagPro_iOS_v3.8.0_build30_AltStore.ipa
+          name: AutoDiagPro-iOS-v3.9.0-build31-AltStore
+          path: AutoDiagPro_iOS_v3.9.0_build31_AltStore.ipa
           if-no-files-found: error
           retention-days: 30

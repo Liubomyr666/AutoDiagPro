@@ -1,3 +1,4 @@
+using AutoDiagPro.Mobile.Models;
 using AutoDiagPro.Mobile.Services;
 using System.Net;
 using CoreGraphics;
@@ -113,6 +114,17 @@ public sealed class ReportsPage : ContentPage
             var invoices = (await invoicesTask).OrderByDescending(x => x.UpdatedAt).Take(20).ToList();
             var photos = await photosTask;
 
+            ServerVinDecodeRecord? deep = null;
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(v.Vin) && VehicleIdentityService.Normalize(v.Vin).Length == 17)
+                    deep = await _api.DecodeVinAsync(v.Vin);
+            }
+            catch { }
+
+            static string V(string? value, string fallback = "—") =>
+                string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+
             var lines = new List<string>
             {
                 "AUTODIAG PRO — СЕРВИСНЫЙ ОТЧЁТ",
@@ -120,6 +132,14 @@ public sealed class ReportsPage : ContentPage
                 "",
                 $"Автомобиль: {v.DisplayName}",
                 $"VIN: {v.Vin ?? "—"}",
+                $"Марка: {V(deep?.Make, v.Make ?? "—")}",
+                $"Модель: {V(deep?.Model, v.Model ?? "—")}",
+                $"Год: {deep?.ParsedYear?.ToString() ?? v.Year?.ToString() ?? "—"}",
+                $"Двигатель: {V(deep?.Engine)}" + (string.IsNullOrWhiteSpace(deep?.DisplacementL) ? "" : $" • {deep!.DisplacementL} л"),
+                $"Топливо: {V(deep?.FuelType)}",
+                $"Коробка: {V(deep?.Transmission)}",
+                $"Привод: {V(deep?.DriveType)}",
+                $"Кузов: {V(deep?.BodyClass)}",
                 $"Госномер: {v.Plate ?? "—"}",
                 $"Пробег: {(v.MileageKm is null ? "—" : $"{v.MileageKm:N0} км")}",
                 ""

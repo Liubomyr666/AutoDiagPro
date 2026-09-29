@@ -232,7 +232,8 @@ public sealed class SettingsPage : ContentPage
                 PickerTitle = "Выберите AutoDiag backup JSON"
             });
             if (file is null) return;
-            await _store.ImportBackupAsync(file.FullPath);
+            await using var stream = await file.OpenReadAsync();
+            await _store.ImportBackupAsync(stream);
             await DisplayAlert("Резервная копия", "Данные восстановлены.", "OK");
         }
         catch (Exception ex)

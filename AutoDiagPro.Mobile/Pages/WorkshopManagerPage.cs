@@ -50,6 +50,8 @@ public sealed class WorkshopManagerPage : ContentPage
             await RenderAppointmentsAsync();
         else if (title == "Счета / чеки")
             await RenderInvoicesAsync();
+        else if (title == "Сотрудники")
+            await RenderEmployeesAsync();
         else
             _body.Add(Theme.CardView(Theme.MutedText("Этот модуль управляется из общего Workshop workspace.")));
     }
@@ -343,6 +345,96 @@ public sealed class WorkshopManagerPage : ContentPage
                 }
             }, new Thickness(13)));
         }
+    }
+
+    private async Task RenderEmployeesAsync()
+    {
+        _body.Add(Theme.MutedText("Механики и сотрудники СТО. Роли приложения управляются отдельно в разделе «Пользователи / роли»."));
+
+        var name = Field("Имя сотрудника");
+        var phone = Field("Телефон", Keyboard.Telephone);
+        var skills = Field("Навыки: VAG, BMW, дизель...");
+        var role = new Picker
+        {
+            Title = "Должность",
+            ItemsSource = new[] { "Механик", "Диагност", "Электрик", "Мастер-приёмщик", "Администратор СТО" },
+            BackgroundColor = Theme.Surface,
+            TextColor = Theme.Text
+        };
+        role.SelectedIndex = 0;
+
+        var add = Theme.PrimaryButton("Добавить сотрудника");
+        add.Clicked += async (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(name.Text))
+            {
+                await DisplayAlert("Сотрудники", "Введите имя.", "OK");
+                return;
+            }
+
+            var db = await _store.LoadAsync();
+            db.Employees.Add(new MobileEmployeeRecord
+            {
+                Name = name.Text.Trim(),
+                Phone = phone.Text?.Trim() ?? "",
+                Skills = skills.Text?.Trim() ?? "",
+                Role = role.SelectedItem?.ToString() ?? "Механик",
+                Active = true
+            });
+            await _store.SaveAsync(db);
+            await RenderAsync();
+        };
+
+        _body.Add(Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 9,
+            Children = { name, phone, skills, role, add }
+        }));
+
+        var data = await _store.LoadAsync();
+        _body.Add(Theme.H2($"Сотрудники • {data.Employees.Count}"));
+
+        foreach (var employee in data.Employees.OrderBy(x => x.Name))
+        {
+            var toggle = Theme.CompactButton(employee.Active ? "Отключить" : "Включить");
+            toggle.Clicked += async (_, _) =>
+            {
+                var db = await _store.LoadAsync();
+                var target = db.Employees.FirstOrDefault(x => x.Id == employee.Id);
+                if (target is not null) target.Active = !target.Active;
+                await _store.SaveAsync(db);
+                await RenderAsync();
+            };
+
+            var delete = Theme.CompactButton("Удалить");
+            delete.TextColor = Theme.Red;
+            delete.Clicked += async (_, _) =>
+            {
+                var yes = await DisplayAlert("Сотрудники", $"Удалить {employee.Name}?", "Удалить", "Отмена");
+                if (!yes) return;
+                var db = await _store.LoadAsync();
+                db.Employees.RemoveAll(x => x.Id == employee.Id);
+                await _store.SaveAsync(db);
+                await RenderAsync();
+            };
+
+            _body.Add(Theme.CardView(new VerticalStackLayout
+            {
+                Spacing = 6,
+                Children =
+                {
+                    new Label { Text = employee.Name, FontSize = 16, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                    Theme.Pill(employee.Active ? "ACTIVE" : "OFF", employee.Active ? Theme.Green : Theme.Red),
+                    Theme.MutedText($"{employee.Role}" +
+                                    (string.IsNullOrWhiteSpace(employee.Phone) ? "" : $" • {employee.Phone}") +
+                                    (string.IsNullOrWhiteSpace(employee.Skills) ? "" : $" • {employee.Skills}")),
+                    new HorizontalStackLayout { Spacing = 8, Children = { toggle, delete } }
+                }
+            }, new Thickness(13)));
+        }
+
+        if (data.Employees.Count == 0)
+            _body.Add(Theme.CardView(Theme.MutedText("Сотрудников пока нет.")));
     }
 
     private static Entry Field(string placeholder, Keyboard? keyboard = null) => new()

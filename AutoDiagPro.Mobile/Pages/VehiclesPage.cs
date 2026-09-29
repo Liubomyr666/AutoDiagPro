@@ -267,7 +267,7 @@ public sealed class VehiclesPage : ContentPage
 
         try
         {
-            var data = await _api.DecodeVinAsync(vehicle.Vin);
+            var data = await _api.DecodeVinRawAsync(vehicle.Vin);
             string V(string name) =>
                 data.TryGetProperty(name, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String
                     ? value.GetString() ?? "—"

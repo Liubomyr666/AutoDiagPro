@@ -23,6 +23,8 @@
   </array>
   <key>NSCameraUsageDescription</key>
   <string>Камера используется для фото автомобиля и QR-кодов.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Для записи звука неисправности во время видеодиагностики.</string>
   <key>NSPhotoLibraryUsageDescription</key>
   <string>Фото используются в истории автомобиля и ремонта.</string>
 </dict>

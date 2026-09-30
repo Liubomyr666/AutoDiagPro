@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.Maui.Storage;
 using System.Text.Json;
 using AutoDiagPro.Mobile.Models;
 
@@ -10,6 +11,7 @@ public sealed class ApiService
 {
     public const string BaseUrl = "https://api-autodiagpro.duckdns.org/";
     private readonly HttpClient _http = new() { BaseAddress = new Uri(BaseUrl), Timeout = TimeSpan.FromSeconds(25) };
+    private readonly HttpClient _mediaHttp = new() { BaseAddress = new Uri(BaseUrl), Timeout = TimeSpan.FromSeconds(150) };
     private readonly JsonSerializerOptions _json = new() { PropertyNameCaseInsensitive = true };
     private readonly SessionStore _store;
 
@@ -341,6 +343,51 @@ public sealed class ApiService
             model = "Auto",
             webSearch
         }, ct);
+
+    // Media is uploaded only after the user picks or records a file.
+    public async Task<ServerAiResponse> AnalyzeMediaAsync(
+        FileResult selected, string vehicleContext, string symptom, CancellationToken ct = default)
+    {
+        var mime = Path.GetExtension(selected.FileName).ToLowerInvariant() switch {
+            ".mp4" => "video/mp4", ".mov" => "video/quicktime", ".webm" => "video/webm",
+            ".mp3" => "audio/mpeg", ".m4a" => "audio/mp4", ".wav" => "audio/wav",
+            ".jpg" or ".jpeg" => "image/jpeg", ".png" => "image/png",
+            _ => throw new InvalidOperationException("Разрешены MP4/MOV, MP3/M4A/WAV и JPEG/PNG.")
+        };
+        await using var picked = await selected.OpenReadAsync();
+        await using var buffer = new MemoryStream();
+        await picked.CopyToAsync(buffer, ct);
+        var data = buffer.ToArray();
+        if (data.Length == 0 || data.Length > 11_000_000)
+            throw new InvalidOperationException("Файл должен быть не более 11 МБ. Обрежьте видео.");
+        await EnsureSessionAsync(ct);
+        async Task<HttpResponseMessage> SendMediaAsync()
+        {
+            using var request = Authorized(HttpMethod.Post, "api/ai/media");
+            using var form = new MultipartFormDataContent();
+            using var binary = new ByteArrayContent(data);
+            binary.Headers.ContentType = new MediaTypeHeaderValue(mime);
+            form.Add(binary, "file", selected.FileName);
+            form.Add(new StringContent(vehicleContext ?? ""), "vehicleContext");
+            form.Add(new StringContent(symptom ?? ""), "symptom");
+            request.Content = form;
+            return await _mediaHttp.SendAsync(request, ct);
+        }
+        var response = await SendMediaAsync();
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            response.Dispose();
+            if (!await TryRefreshAsync(ct)) throw new InvalidOperationException("Сессия истекла. Войдите заново.");
+            response = await SendMediaAsync();
+        }
+        using (response)
+            return await ReadAsync<ServerAiResponse>(response, "AI анализ видео/звука", ct);
+    }
+
+    public Task<ServerAiResponse> RunPartsAgentAsync(
+        string question, string vehicleContext, bool webSearch, CancellationToken ct = default) =>
+        PostAuthorizedAsync<ServerAiResponse>("api/parts/agent",
+            new { question, vehicleContext, model = "Auto", webSearch }, ct);
 
     public async Task UploadScanAsync(Guid vehicleId, string? vin, string adapter, string protocol, int dtcCount, string summary, CancellationToken ct = default)
     {

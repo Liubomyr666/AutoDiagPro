@@ -30,6 +30,8 @@ public sealed class InjectorPage : ContentPage
     private readonly Button _auditShare = Theme.PrimaryButton("Поделиться отчётом");
     private Guid? _auditVehicleId;
     private string _lastAuditText = "";
+    private string _auditVerifiedVin = "";
+    private string _auditVerifiedEndpoint = "";
 
     public InjectorPage()
     {
@@ -85,6 +87,8 @@ public sealed class InjectorPage : ContentPage
     {
         base.OnAppearing();
         if (!await AccessPolicy.RequireStaffAsync(this)) return;
+        _auditVerifiedVin = "";
+        _auditVerifiedEndpoint = "";
         UseSelectedVehicle(onlyIfChanged: true);
         if (_obd.IsConnected) await RefreshAsync();
     }
@@ -121,6 +125,19 @@ public sealed class InjectorPage : ContentPage
             CornerRadius = 12
         };
         useVehicle.Clicked += (_, _) => UseSelectedVehicle(onlyIfChanged: false);
+        var verifyVin = new Button
+        {
+            Text = "Проверить VIN через OBD",
+            BackgroundColor = Theme.Surface,
+            TextColor = Theme.Text,
+            HeightRequest = 46,
+            CornerRadius = 12
+        };
+        verifyVin.Clicked += async (_, _) =>
+        {
+            if (!await AccessPolicy.RequireStaffAsync(this)) return;
+            await VerifyVinAsync();
+        };
         var compare = Theme.PrimaryButton("Сверить коды по цилиндрам");
         compare.Clicked += async (_, _) =>
         {
@@ -152,6 +169,7 @@ public sealed class InjectorPage : ContentPage
                 _auditYear,
                 _auditVin,
                 useVehicle,
+                verifyVin,
                 Theme.Body("Количество цилиндров (1–16):"),
                 _auditCylinders,
                 Theme.Eyebrow("КАЛИБРОВОЧНЫЕ КОДЫ С КОРПУСОВ ФОРСУНОК"),
@@ -192,8 +210,65 @@ public sealed class InjectorPage : ContentPage
     private void InvalidateAudit()
     {
         _lastAuditText = "";
+        _auditVerifiedVin = "";
+        _auditVerifiedEndpoint = "";
         _auditShare.IsEnabled = false;
         _auditSummary.Text = "Данные изменились — выполните сверку повторно.";
+        _auditSummary.TextColor = Theme.Accent;
+    }
+
+    private bool LiveVinMatches() =>
+        _obd.IsConnected &&
+        !string.IsNullOrWhiteSpace(_auditVerifiedVin) &&
+        string.Equals(_auditVerifiedEndpoint, _obd.Endpoint, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(_auditVin.Text?.Trim(), _auditVerifiedVin, StringComparison.OrdinalIgnoreCase);
+
+    private async Task VerifyVinAsync()
+    {
+        if (!_obd.IsConnected)
+        {
+            _auditSummary.Text =
+                "OBD не подключён. Ручная сверка с внешним OEM-отчётом доступна без адаптера.";
+            return;
+        }
+        try
+        {
+            _auditSummary.Text = "Читаю текущий VIN через стандартный OBD...";
+            var vin = (await _obd.VinAsync()).Trim().ToUpperInvariant();
+            if (vin.Length != 17 || !vin.All(char.IsAsciiLetterOrDigit))
+            {
+                _auditSummary.Text =
+                    "VIN не прочитан через стандартный OBD. Для этого авто может потребоваться OEM-протокол.";
+                return;
+            }
+            var cardVin = (_auditVin.Text ?? "").Trim();
+            if (cardVin.Length == 0)
+            {
+                _auditVin.Text = vin;
+                cardVin = vin;
+            }
+            if (!string.Equals(cardVin, vin, StringComparison.OrdinalIgnoreCase))
+            {
+                _auditVerifiedVin = "";
+                _auditSummary.TextColor = Theme.Red;
+                _auditSummary.Text =
+                    $"VIN текущей машины {vin} не совпадает с VIN карточки {cardVin}. " +
+                    "Проверь, относится ли внешний OEM-отчёт к этой машине.";
+                return;
+            }
+            _auditVerifiedVin = vin;
+            _auditVerifiedEndpoint = _obd.Endpoint;
+            _auditSummary.TextColor = Theme.Green;
+            _auditSummary.Text =
+                "VIN совпал со стандартным OBD-ответом машины. " +
+                "Это НЕ проверяет прописанные коды форсунок в ECU.";
+        }
+        catch (Exception ex)
+        {
+            _auditVerifiedVin = "";
+            _auditSummary.TextColor = Theme.Red;
+            _auditSummary.Text = "VIN по OBD прочитать не удалось: " + ex.Message;
+        }
     }
 
     private void CompareAudit()
@@ -223,7 +298,7 @@ public sealed class InjectorPage : ContentPage
         var year = int.TryParse(_auditYear.Text, out var parsed) &&
                    parsed is >= 1886 and <= 2100 ? parsed : (int?)null;
         _lastAuditText = InjectorCodeAudit.BuildTextReport(
-            _auditMake.Text, _auditModel.Text, year, _auditVin.Text, report);
+            _auditMake.Text, _auditModel.Text, year, _auditVin.Text, report, LiveVinMatches());
         _auditSummary.Text = report.Summary;
         _auditSummary.TextColor = report.Mismatching > 0 ? Theme.Red : Theme.Accent;
         _auditResult.Text = _lastAuditText;

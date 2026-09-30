@@ -83,6 +83,7 @@ public sealed class ProgrammingCenterPage : ContentPage
     {
         base.OnAppearing();
         if (!await AccessPolicy.RequireStaffAsync(this)) return;
+        _verifiedVehicleId = null; // Never reuse evidence after leaving/re-entering the page.
         var name = string.IsNullOrWhiteSpace(_state.PendingModuleTitle) ? "Программирование ECU" : _state.PendingModuleTitle;
         _title.Text = name;
         _subtitle.Text = Description(name);
@@ -100,6 +101,7 @@ public sealed class ProgrammingCenterPage : ContentPage
         var make = (vehicle?.Make ?? "").Trim();
         var model = (vehicle?.Model ?? "").Trim();
         var year = vehicle?.Year;
+        var makeIs = (string value) => make.Equals(value, StringComparison.OrdinalIgnoreCase);
         var vag = new[] { "Volkswagen", "VW", "Audi", "Skoda", "Škoda", "Seat", "Cupra" }
             .Contains(make, StringComparer.OrdinalIgnoreCase);
         var bmw = make.Equals("BMW", StringComparison.OrdinalIgnoreCase) ||
@@ -112,7 +114,8 @@ public sealed class ProgrammingCenterPage : ContentPage
             ? "Автомобиль не выбран. Выбери его в разделе «Авто» для подбора функций."
             : $"{make} {model} {(year.HasValue ? year.ToString() : "")} • VIN {vehicle.Vin ?? "не указан"}"));
         var vinCheckedForSelectedVehicle = vehicle != null && _verifiedVehicleId == vehicle.Id;
-        _codingIdeas.Add(Theme.MutedText(_identityStatus));
+        _codingIdeas.Add(Theme.MutedText(vinCheckedForSelectedVehicle && _obd.IsConnected
+            ? _identityStatus : "VIN выбранной машины не подтверждён в текущем сеансе."));
         _codingIdeas.Add(Theme.MutedText(
             "Ниже — возможные опции, НЕ проверенная совместимость. " +
             "VIN подтверждает машину, но ELM/Vgate НЕ подтверждает функции кузовного ECU. " +
@@ -145,6 +148,39 @@ public sealed class ProgrammingCenterPage : ContentPage
         {
             ideas.Add(("Комфорт", "Складывание зеркал при закрытии", "BDC / FEM / FRM", "Нужны электроскладываемые зеркала"));
             ideas.Add(("Приборка", "Цифровая скорость", "KOMBI", "Функция в ПО конкретной приборки"));
+            ideas.Add(("Освещение", "Welcome lights / ДХО", "FRM / BDC", "Совместимая оптика и ПО блока"));
+        }
+        if (makeIs("Mercedes-Benz") || makeIs("Mercedes") || makeIs("Smart"))
+        {
+            ideas.Add(("Комфорт", "Складывание зеркал", "SAM / Door", "Электроскладывание и проверенная опция блока"));
+            ideas.Add(("Комфорт", "Автозапирание", "SAM / EZS", "Наличие настройки в конкретном блоке"));
+            ideas.Add(("Освещение", "Подсветка при открытии / Coming Home", "Front / Rear SAM",
+                "Конкретная платформа, версия ПО, штатная оптика"));
+        }
+        if (makeIs("Toyota") || makeIs("Lexus"))
+        {
+            ideas.Add(("Комфорт", "Автозапирание / отпирание", "Main Body ECU",
+                "Опция Customization должна поддерживаться автомобилем"));
+            ideas.Add(("Комфорт", "Открытие окон с пульта", "Main Body ECU",
+                "Совместимые стеклоподъёмники и штатная функция"));
+            ideas.Add(("Освещение", "Задержка выключения фар", "Main Body ECU",
+                "Параметр должен присутствовать у этого ECU"));
+        }
+        if (makeIs("Ford") || makeIs("Lincoln"))
+        {
+            ideas.Add(("Комфорт", "Global open / close", "BCM",
+                "Совместимый BCM и дверное оборудование"));
+            ideas.Add(("Освещение", "Параметры ДХО", "BCM",
+                "Поддержка комплектацией, рынком и прошивкой BCM"));
+            ideas.Add(("Приборка", "Параметры IPC", "IPC",
+                "Список доступных функций конкретного ПО"));
+        }
+        if (makeIs("Hyundai") || makeIs("Kia") || makeIs("Genesis"))
+        {
+            ideas.Add(("Комфорт", "Автозапирание / отпирание", "BCM",
+                "Конкретная комплектация и ПО блока"));
+            ideas.Add(("Освещение", "Welcome / Escort lights", "BCM",
+                "Штатная оптика и поддерживаемая настройка"));
         }
         foreach (var item in ideas)
         {

@@ -15,6 +15,8 @@ public sealed class ProgrammingCenterPage : ContentPage
     private readonly Label _capabilities = Theme.MutedText("Подключите адаптер и запустите проверку возможностей.");
     private readonly VerticalStackLayout _ecu = new() { Spacing = 8 };
     private readonly VerticalStackLayout _codingIdeas = new() { Spacing = 8 };
+    private Guid? _verifiedVehicleId;
+    private string _identityStatus = "Проверка VIN ещё не выполнена.";
     private readonly Entry _batteryAh = Field("Ёмкость АКБ, Ah", Keyboard.Numeric);
     private readonly Picker _batteryType = new() { Title = "Тип АКБ", ItemsSource = new[] { "AGM", "EFB", "Обычный свинцово-кислотный", "Li-ion" } };
     private readonly Entry _batteryMaker = Field("Производитель / серийный номер");
@@ -109,8 +111,12 @@ public sealed class ProgrammingCenterPage : ContentPage
         _codingIdeas.Add(Theme.MutedText(vehicle == null
             ? "Автомобиль не выбран. Выбери его в разделе «Авто» для подбора функций."
             : $"{make} {model} {(year.HasValue ? year.ToString() : "")} • VIN {vehicle.Vin ?? "не указан"}"));
+        var vinCheckedForSelectedVehicle = vehicle != null && _verifiedVehicleId == vehicle.Id;
+        _codingIdeas.Add(Theme.MutedText(_identityStatus));
         _codingIdeas.Add(Theme.MutedText(
-            "Ниже — возможные опции, НЕ проверенная совместимость. Подтверждение требует чтения аппаратного номера, ПО, кодировки ECU и проверки оборудования. Запись здесь заблокирована."));
+            "Ниже — возможные опции, НЕ проверенная совместимость. " +
+            "VIN подтверждает машину, но ELM/Vgate НЕ подтверждает функции кузовного ECU. " +
+            "Для кодирования нужна проверка марочным оборудованием по HW/SW блока. Запись здесь заблокирована."));
         if (vehicle == null) return;
 
         var ideas = new List<(string Category, string Name, string Module, string Condition)>
@@ -149,7 +155,9 @@ public sealed class ProgrammingCenterPage : ContentPage
                 {
                     Theme.Eyebrow(item.Category),
                     Theme.H2(item.Name),
-                    Theme.MutedText("Статус: возможная функция • требуется проверка"),
+                    Theme.MutedText(vinCheckedForSelectedVehicle
+                        ? "VIN проверен • целевой ECU / функция НЕ подтверждены"
+                        : "Пока только идея • VIN / ECU не проверены"),
                     Theme.Body("Блок: " + item.Module),
                     Theme.MutedText("Условия: " + item.Condition)
                 }
@@ -178,6 +186,29 @@ public sealed class ProgrammingCenterPage : ContentPage
             var info = await _obd.EcuInfoAsync();
             foreach (var x in info)
                 _ecu.Add(Row(x.Key, x.Value));
+
+            var readVin = info.TryGetValue("VIN", out var scannedVin) ? scannedVin.Trim() : "";
+            var knownVin = readVin.Length == 17 &&
+                readVin.All(ch => char.IsAsciiLetterOrDigit(ch));
+            _verifiedVehicleId = null;
+            if (knownVin)
+            {
+                // Match only an existing authorized vehicle; never guess the vehicle by make.
+                var found = _state.Vehicles.FirstOrDefault(v =>
+                    string.Equals(v.Vin?.Trim(), readVin, StringComparison.OrdinalIgnoreCase));
+                if (found != null)
+                    _state.SelectedVehicle = found;
+                var selected = _state.SelectedVehicle;
+                if (selected != null &&
+                    string.Equals(selected.Vin?.Trim(), readVin, StringComparison.OrdinalIgnoreCase))
+                    _verifiedVehicleId = selected.Id;
+            }
+            _identityStatus = !knownVin
+                ? "VIN не прочитан: нужен выбор автомобиля и отдельная сверка идентичности."
+                : _verifiedVehicleId is not null
+                    ? "VIN совпал с выбранным автомобилем. Кузовные ECU ещё НЕ проверены."
+                    : "VIN не совпадает с сохранёнными автомобилями: функции нельзя привязать к выбранной машине.";
+            RefreshCodingIdeas();
 
             var brand = _state.SelectedVehicle?.Make;
             var capability = MobileAdapterCapabilityService.Evaluate(

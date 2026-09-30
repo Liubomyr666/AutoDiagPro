@@ -45,9 +45,9 @@ public sealed class InjectorPage : ContentPage
         _auditShare.IsEnabled = false;
         foreach (var entry in new[] { _auditMake, _auditModel, _auditYear, _auditVin })
             entry.TextChanged += (_, _) => InvalidateAudit();
-        _auditMarkings.TextChanged += (_, _) => InvalidateAudit();
-        _auditOemCodes.TextChanged += (_, _) => InvalidateAudit();
-        _auditCylinders.SelectedIndexChanged += (_, _) => InvalidateAudit();
+        _auditMarkings.TextChanged += (_, _) => InvalidateAudit(resetVinEvidence: false);
+        _auditOemCodes.TextChanged += (_, _) => InvalidateAudit(resetVinEvidence: false);
+        _auditCylinders.SelectedIndexChanged += (_, _) => InvalidateAudit(resetVinEvidence: false);
         _auditMake.Unfocused += (_, _) =>
         {
             if (string.IsNullOrWhiteSpace(_lastAuditText))
@@ -207,11 +207,14 @@ public sealed class InjectorPage : ContentPage
             InjectorCodeAudit.EquipmentGuide(vehicle.Make);
     }
 
-    private void InvalidateAudit()
+    private void InvalidateAudit(bool resetVinEvidence = true)
     {
         _lastAuditText = "";
-        _auditVerifiedVin = "";
-        _auditVerifiedEndpoint = "";
+        if (resetVinEvidence)
+        {
+            _auditVerifiedVin = "";
+            _auditVerifiedEndpoint = "";
+        }
         _auditShare.IsEnabled = false;
         _auditSummary.Text = "Данные изменились — выполните сверку повторно.";
         _auditSummary.TextColor = Theme.Accent;

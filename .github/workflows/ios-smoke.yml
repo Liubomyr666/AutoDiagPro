@@ -94,17 +94,23 @@ jobs:
           proc = subprocess.Popen(
               ["xcrun","simctl","launch","--terminate-running-process",device,bundle],
               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+          launch_timed_out = False
           try:
-              out, _ = proc.communicate(timeout=25)
+              out, _ = proc.communicate(timeout=45)
               launch_text += out or ""
           except subprocess.TimeoutExpired:
-              proc.terminate()
-              try:
-                  out, _ = proc.communicate(timeout=5)
-                  launch_text += out or ""
-              except subprocess.TimeoutExpired:
-                  proc.kill()
-              launch_text += "\nsimctl launch timed out after app handoff; continuing runtime validation.\n"
+              launch_timed_out = True
+              proc.kill()
+              out, _ = proc.communicate(timeout=10)
+              launch_text += out or ""
+              launch_text += "\nsimctl launch timed out; this is a failed startup.\n"
+
+          if launch_timed_out or proc.returncode != 0 or bundle not in launch_text:
+              with open("launch.txt","w") as out:
+                  out.write(launch_text)
+              raise SystemExit(
+                  "iOS app failed to launch: timeout, non-zero simctl exit or no bundle confirmation. "
+                  + launch_text)
 
           with open("launch.txt","w") as out:
               out.write(launch_text)

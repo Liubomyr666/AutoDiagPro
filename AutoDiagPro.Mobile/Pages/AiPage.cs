@@ -1,4 +1,5 @@
 using AutoDiagPro.Mobile.Services;
+using Microsoft.Maui.Storage;
 
 namespace AutoDiagPro.Mobile.Pages;
 
@@ -6,6 +7,16 @@ public sealed class AiPage : ContentPage
 {
     private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
+
+    private readonly Editor _mediaSymptom = new() {
+        Placeholder = "Например: стук на холодном запуске, пропадает после прогрева...",
+        AutoSize = EditorAutoSizeOption.TextChanges,
+        MinimumHeightRequest = 65,
+        BackgroundColor = Theme.Surface,
+        TextColor = Theme.Text,
+        PlaceholderColor = Theme.Muted
+    };
+    private readonly Label _mediaResult = Theme.MutedText("Снимите видео или загрузите запись звука до 11 МБ.");
 
     private readonly Editor _question = new()
     {
@@ -52,6 +63,7 @@ public sealed class AiPage : ContentPage
                     Theme.H1("AI помощник"),
                     Theme.MutedText("Помогает понять неисправность, план ремонта, нужные детали и где их искать."),
                     Theme.CardView(BuildProblemCard()),
+                    Theme.CardView(BuildMediaCard()),
                     Theme.CardView(BuildAskCard()),
                     Theme.CardView(new VerticalStackLayout
                     {
@@ -135,6 +147,60 @@ public sealed class AiPage : ContentPage
                 explain, repair, parts, mechanic
             }
         };
+    }
+
+    private View BuildMediaCard()
+    {
+        var upload = QuickButton("📁 Загрузить видео / аудио / фото");
+        var camera = QuickButton("🎥 Снять видео на iPhone");
+        upload.Clicked += async (_, _) => await AnalyzeMediaAsync(capture: false);
+        camera.Clicked += async (_, _) => await AnalyzeMediaAsync(capture: true);
+        return new VerticalStackLayout {
+            Spacing = 10,
+            Children = {
+                new Label { Text = "AI ВИДЕО И ЗВУК", FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Text },
+                Theme.MutedText("Для звуков двигателя, форсунок, турбины и подвески. " +
+                    "До 11 МБ, только с вашего разрешения. Ответ — предварительная диагностика."),
+                _mediaSymptom, upload, camera, _mediaResult
+            }
+        };
+    }
+
+    private async Task AnalyzeMediaAsync(bool capture)
+    {
+        try
+        {
+            if (!_api.IsLoggedIn) throw new InvalidOperationException(
+                "Для анализа необходимо войти в AutoDiag Server.");
+            FileResult? media;
+            if (capture) {
+                if (!MediaPicker.Default.IsCaptureSupported)
+                    throw new InvalidOperationException("Камера на этом устройстве недоступна.");
+                media = await MediaPicker.Default.CaptureVideoAsync();
+            } else {
+                media = await FilePicker.Default.PickAsync(
+                    new PickOptions { PickerTitle = "Видео, аудио или фото неисправности" });
+            }
+            if (media is null) return;
+            var vehicle = _state.SelectedVehicle;
+            var context = vehicle is null ? "Автомобиль не выбран." :
+                "Автомобиль: " + vehicle.DisplayName + "; VIN: " + vehicle.Vin +
+                "; пробег: " + vehicle.MileageKm + " км.";
+            if (!string.IsNullOrWhiteSpace(_state.LastDiagnosticSummary))
+                context += "\nПоследняя диагностика: " +
+                    _state.LastDiagnosticSummary[..Math.Min(8500, _state.LastDiagnosticSummary.Length)];
+            _mediaResult.Text = "Анализирую " + media.FileName + "...";
+            _mediaResult.TextColor = Theme.Muted;
+            var result = await _api.AnalyzeMediaAsync(media, context, _mediaSymptom.Text ?? "");
+            _mediaResult.Text = result.Answer +
+                "\n\nЭто гипотезы. Подтвердите причину измерениями и осмотром.";
+            _mediaResult.TextColor = Theme.Text;
+        }
+        catch (Exception ex) {
+            _mediaResult.Text = ex.Message;
+            _mediaResult.TextColor = Theme.Red;
+        }
     }
 
     private View BuildAskCard()

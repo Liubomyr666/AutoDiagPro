@@ -14,6 +14,7 @@ public sealed class ProgrammingCenterPage : ContentPage
     private readonly Label _status = Theme.MutedText("Проверка не запускалась.");
     private readonly Label _capabilities = Theme.MutedText("Подключите адаптер и запустите проверку возможностей.");
     private readonly VerticalStackLayout _ecu = new() { Spacing = 8 };
+    private readonly VerticalStackLayout _codingIdeas = new() { Spacing = 8 };
     private readonly Entry _batteryAh = Field("Ёмкость АКБ, Ah", Keyboard.Numeric);
     private readonly Picker _batteryType = new() { Title = "Тип АКБ", ItemsSource = new[] { "AGM", "EFB", "Обычный свинцово-кислотный", "Li-ion" } };
     private readonly Entry _batteryMaker = Field("Производитель / серийный номер");
@@ -69,6 +70,7 @@ public sealed class ProgrammingCenterPage : ContentPage
                         }
                     }),
                     _ecu,
+                    Theme.CardView(_codingIdeas),
                     Theme.CardView(_batteryPanel)
                 }
             }
@@ -82,8 +84,77 @@ public sealed class ProgrammingCenterPage : ContentPage
         var name = string.IsNullOrWhiteSpace(_state.PendingModuleTitle) ? "Программирование ECU" : _state.PendingModuleTitle;
         _title.Text = name;
         _subtitle.Text = Description(name);
+        RefreshCodingIdeas();
         _batteryPanel.IsVisible = name.Contains("Battery", StringComparison.OrdinalIgnoreCase) ||
                                   name.Contains("АКБ", StringComparison.OrdinalIgnoreCase);
+    }
+
+
+    // Display-only suggestions. VIN alone cannot prove that a specific ECU supports coding.
+    private void RefreshCodingIdeas()
+    {
+        _codingIdeas.Clear();
+        var vehicle = _state.SelectedVehicle;
+        var make = (vehicle?.Make ?? "").Trim();
+        var model = (vehicle?.Model ?? "").Trim();
+        var year = vehicle?.Year;
+        var vag = new[] { "Volkswagen", "VW", "Audi", "Skoda", "Škoda", "Seat", "Cupra" }
+            .Contains(make, StringComparer.OrdinalIgnoreCase);
+        var bmw = make.Equals("BMW", StringComparison.OrdinalIgnoreCase) ||
+                  make.Equals("MINI", StringComparison.OrdinalIgnoreCase);
+        var skoda = make.Equals("Skoda", StringComparison.OrdinalIgnoreCase) ||
+                    make.Equals("Škoda", StringComparison.OrdinalIgnoreCase);
+        _codingIdeas.Add(Theme.Eyebrow("КАТАЛОГ КОДИРОВАНИЯ"));
+        _codingIdeas.Add(Theme.H2("Что можно настроить на этой машине"));
+        _codingIdeas.Add(Theme.MutedText(vehicle == null
+            ? "Автомобиль не выбран. Выбери его в разделе «Авто» для подбора функций."
+            : $"{make} {model} {(year.HasValue ? year.ToString() : "")} • VIN {vehicle.Vin ?? "не указан"}"));
+        _codingIdeas.Add(Theme.MutedText(
+            "Ниже — возможные опции, НЕ проверенная совместимость. Подтверждение требует чтения аппаратного номера, ПО, кодировки ECU и проверки оборудования. Запись здесь заблокирована."));
+        if (vehicle == null) return;
+
+        var ideas = new List<(string Category, string Name, string Module, string Condition)>
+        {
+            ("Комфорт", "Автоматическое запирание", "BCM / Body", "Наличие соответствующей адаптации"),
+            ("Освещение", "Coming Home / Leaving Home", "BCM / Lighting", "Штатные датчики и поддержка блока"),
+            ("Приборка", "Дополнительные настройки дисплея", "Cluster", "Конкретная приборка и версия ПО")
+        };
+        if (vag)
+        {
+            ideas.Add(("Приборка", "Тест стрелок / Needle Sweep", "17 Instruments", "Поддерживаемая комбинация приборов"));
+            ideas.Add(("Комфорт", "Закрытие окон с ключа", "09 / 46 / Door", "Совместимые дверные блоки"));
+            ideas.Add(("Освещение", "Настройка ДХО", "09 Central Electrics", "Вариант BCM и штатная оптика"));
+            if (!year.HasValue || year.Value >= 2013)
+                ideas.Add(("Освещение", "Динамические поворотники / Urban Joke", "09 BCM / Lighting",
+                    "Нужна совместимая оптика; кодирование не создаёт LED-секции"));
+            if (new[] { "Octavia", "Superb", "Kodiaq", "Golf", "Passat", "Leon", "A3" }
+                .Any(x => model.Contains(x, StringComparison.OrdinalIgnoreCase)))
+                ideas.Add(("Приборка", skoda ? "Спортивная тема vRS" : "Спортивная тема приборки",
+                    "17 Instruments / Virtual Cockpit", "Тема должна существовать в прошивке установленной приборки"));
+            if (skoda && model.Contains("Octavia", StringComparison.OrdinalIgnoreCase))
+                ideas.Add(("Освещение", "ДХО с противотуманками / vRS", "09 Central Electrics",
+                    "Только подходящий BCM, год и комплектация"));
+        }
+        if (bmw)
+        {
+            ideas.Add(("Комфорт", "Складывание зеркал при закрытии", "BDC / FEM / FRM", "Нужны электроскладываемые зеркала"));
+            ideas.Add(("Приборка", "Цифровая скорость", "KOMBI", "Функция в ПО конкретной приборки"));
+        }
+        foreach (var item in ideas)
+        {
+            _codingIdeas.Add(Theme.CardView(new VerticalStackLayout
+            {
+                Spacing = 4,
+                Children =
+                {
+                    Theme.Eyebrow(item.Category),
+                    Theme.H2(item.Name),
+                    Theme.MutedText("Статус: возможная функция • требуется проверка"),
+                    Theme.Body("Блок: " + item.Module),
+                    Theme.MutedText("Условия: " + item.Condition)
+                }
+            }));
+        }
     }
 
     private async Task CheckAsync()

@@ -164,13 +164,15 @@ public static class InjectorCodeAudit
     }
 
     public static string BuildTextReport(string? make, string? model, int? year, string? vin,
-        InjectorCodeAuditReport audit)
+        InjectorCodeAuditReport audit, bool liveVinCompared = false)
     {
         var sb = new StringBuilder();
         sb.AppendLine("AUTODIAG PRO — СВЕРКА КОДОВ ФОРСУНОК (РУЧНОЙ ОТЧЁТ)");
         sb.AppendLine($"UTC: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
         sb.AppendLine($"Автомобиль: {make ?? "не указан"} {model ?? ""} {(year.HasValue && year > 0 ? year.ToString() : "")}".Trim());
-        sb.AppendLine($"VIN из карточки (не подтверждён ECU): {(string.IsNullOrWhiteSpace(vin) ? "не указан" : vin)}");
+        sb.AppendLine($"VIN: {(string.IsNullOrWhiteSpace(vin) ? "не указан" : vin)} — " +
+            (liveVinCompared ? "сверен со стандартным OBD VIN (не проверка кодов форсунок)" :
+                "только из карточки, не подтверждён ECU"));
         sb.AppendLine(SourceNotice);
         sb.AppendLine(MarkingNotice);
         sb.AppendLine(EquipmentGuide(make));

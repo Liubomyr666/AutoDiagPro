@@ -2,6 +2,12 @@ name: iOS Runtime Smoke Test
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "AutoDiagPro.Mobile/**"
+      - ".github/workflows/ios-smoke.yml"
+      - "global.json"
   push:
     branches: [ "main" ]
     paths:
@@ -143,7 +149,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: AutoDiagPro-iOS-v3.24.0-client-ui-smoke
+          name: AutoDiagPro-iOS-v3.25.0-client-ui-smoke
           path: |
             screenshot.png
             launch.txt

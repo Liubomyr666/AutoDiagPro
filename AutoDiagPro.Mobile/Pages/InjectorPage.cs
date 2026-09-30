@@ -19,7 +19,7 @@ public sealed class InjectorPage : ContentPage
     private readonly Picker _auditCylinders = new()
     {
         Title = "Количество цилиндров", BackgroundColor = Theme.Surface, TextColor = Theme.Text,
-        ItemsSource = Enumerable.Range(3, 14).Select(x => x.ToString()).ToArray()
+        ItemsSource = Enumerable.Range(1, 16).Select(x => x.ToString()).ToArray()
     };
     private readonly Editor _auditMarkings = MultiInput("1=КОД с корпуса форсунки\\n2=..."),
                             _auditOemCodes = MultiInput("1=КОД из OEM-отчёта\\n2=...");
@@ -39,13 +39,18 @@ public sealed class InjectorPage : ContentPage
 
         var scan = Theme.PrimaryButton("Проверить топливную систему");
         scan.Clicked += async (_, _) => await RefreshAsync();
-        _auditCylinders.SelectedIndex = 1; // 4 cylinders initially, adjustable up to 16.
+        _auditCylinders.SelectedIndex = 3; // 4 cylinders initially, 1–16 supported.
         _auditShare.IsEnabled = false;
         foreach (var entry in new[] { _auditMake, _auditModel, _auditYear, _auditVin })
             entry.TextChanged += (_, _) => InvalidateAudit();
         _auditMarkings.TextChanged += (_, _) => InvalidateAudit();
         _auditOemCodes.TextChanged += (_, _) => InvalidateAudit();
         _auditCylinders.SelectedIndexChanged += (_, _) => InvalidateAudit();
+        _auditMake.Unfocused += (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(_lastAuditText))
+                _auditSummary.Text = InjectorCodeAudit.EquipmentGuide(_auditMake.Text);
+        };
 
         Content = new ScrollView
         {
@@ -147,7 +152,7 @@ public sealed class InjectorPage : ContentPage
                 _auditYear,
                 _auditVin,
                 useVehicle,
-                Theme.Body("Количество цилиндров (3–16):"),
+                Theme.Body("Количество цилиндров (1–16):"),
                 _auditCylinders,
                 Theme.Eyebrow("КАЛИБРОВОЧНЫЕ КОДЫ С КОРПУСОВ ФОРСУНОК"),
                 Theme.MutedText("Вводи построчно: 1=ABC123, 2=DEF456 ...; ориентируйся на нумерацию цилиндров производителя."),
@@ -180,7 +185,8 @@ public sealed class InjectorPage : ContentPage
         _auditModel.Text = vehicle.Model ?? "";
         _auditYear.Text = vehicle.Year?.ToString() ?? "";
         _auditVin.Text = vehicle.Vin ?? "";
-        _auditSummary.Text = "Данные из карточки авто. VIN и коды форсунок этим действием не считываются.";
+        _auditSummary.Text = "Данные из карточки авто. VIN и коды ECU не считаны. " +
+            InjectorCodeAudit.EquipmentGuide(vehicle.Make);
     }
 
     private void InvalidateAudit()
@@ -193,9 +199,9 @@ public sealed class InjectorPage : ContentPage
     private void CompareAudit()
     {
         if (_auditCylinders.SelectedItem is not string selected ||
-            !int.TryParse(selected, out var count) || count is < 3 or > 16)
+            !int.TryParse(selected, out var count) || count is < 1 or > 16)
         {
-            _auditSummary.Text = "Выбери число цилиндров от 3 до 16.";
+            _auditSummary.Text = "Выбери число цилиндров от 1 до 16.";
             return;
         }
         var markings = InjectorCodeAudit.ParseCylinderLines(_auditMarkings.Text, count);

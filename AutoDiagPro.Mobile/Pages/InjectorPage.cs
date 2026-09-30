@@ -1,5 +1,7 @@
 using AutoDiagPro.Mobile.Services;
 using AutoDiagPro.Mobile.Services.Obd;
+using AutoDiagPro.SharedDiagnostics;
+using Microsoft.Maui.ApplicationModel.DataTransfer;
 
 namespace AutoDiagPro.Mobile.Pages;
 
@@ -9,6 +11,25 @@ public sealed class InjectorPage : ContentPage
     private readonly Label _status = Theme.MutedText("Подключите OBD и запустите проверку.");
     private readonly VerticalStackLayout _values = new() { Spacing = 9 };
     private bool _busy;
+    private readonly MobileState _state = AppServices.Get<MobileState>();
+    private readonly Entry _auditMake = Input("Марка");
+    private readonly Entry _auditModel = Input("Модель / двигатель");
+    private readonly Entry _auditYear = Input("Год", Keyboard.Numeric);
+    private readonly Entry _auditVin = Input("VIN из карточки (не проверен ECU)");
+    private readonly Picker _auditCylinders = new()
+    {
+        Title = "Количество цилиндров", BackgroundColor = Theme.Surface, TextColor = Theme.Text,
+        ItemsSource = Enumerable.Range(3, 14).Select(x => x.ToString()).ToArray()
+    };
+    private readonly Editor _auditMarkings = MultiInput("1=КОД с корпуса форсунки\\n2=..."),
+                            _auditOemCodes = MultiInput("1=КОД из OEM-отчёта\\n2=...");
+    private readonly Label _auditSummary = Theme.MutedText("Данные ещё не сравнивались.");
+    private readonly Label _auditResult = Theme.MutedText(
+        "Фактического чтения прописанных кодов ЭБУ в AutoDiag сейчас нет. " +
+        "Этот раздел сравнивает коды, введённые из внешнего OEM-отчёта.");
+    private readonly Button _auditShare = Theme.PrimaryButton("Поделиться отчётом");
+    private Guid? _auditVehicleId;
+    private string _lastAuditText = "";
 
     public InjectorPage()
     {
@@ -18,6 +39,13 @@ public sealed class InjectorPage : ContentPage
 
         var scan = Theme.PrimaryButton("Проверить топливную систему");
         scan.Clicked += async (_, _) => await RefreshAsync();
+        _auditCylinders.SelectedIndex = 1; // 4 cylinders initially, adjustable up to 16.
+        _auditShare.IsEnabled = false;
+        foreach (var entry in new[] { _auditMake, _auditModel, _auditYear, _auditVin })
+            entry.TextChanged += (_, _) => InvalidateAudit();
+        _auditMarkings.TextChanged += (_, _) => InvalidateAudit();
+        _auditOemCodes.TextChanged += (_, _) => InvalidateAudit();
+        _auditCylinders.SelectedIndexChanged += (_, _) => InvalidateAudit();
 
         Content = new ScrollView
         {
@@ -41,7 +69,8 @@ public sealed class InjectorPage : ContentPage
                     }),
                     scan,
                     _status,
-                    _values
+                    _values,
+                    Theme.CardView(BuildAuditPanel())
                 }
             }
         };
@@ -51,7 +80,148 @@ public sealed class InjectorPage : ContentPage
     {
         base.OnAppearing();
         if (!await AccessPolicy.RequireStaffAsync(this)) return;
+        UseSelectedVehicle(onlyIfChanged: true);
         if (_obd.IsConnected) await RefreshAsync();
+    }
+
+    private static Entry Input(string placeholder, Keyboard? keyboard = null) => new()
+    {
+        Placeholder = placeholder,
+        Keyboard = keyboard ?? Keyboard.Default,
+        BackgroundColor = Theme.Surface,
+        TextColor = Theme.Text,
+        PlaceholderColor = Theme.Muted,
+        HeightRequest = 45
+    };
+
+    private static Editor MultiInput(string placeholder) => new()
+    {
+        Placeholder = placeholder.Replace("\\n", "\n"),
+        BackgroundColor = Theme.Surface,
+        TextColor = Theme.Text,
+        PlaceholderColor = Theme.Muted,
+        HeightRequest = 145,
+        FontFamily = "Menlo",
+        FontSize = 13
+    };
+
+    private View BuildAuditPanel()
+    {
+        var useVehicle = new Button
+        {
+            Text = "Взять выбранный автомобиль",
+            BackgroundColor = Theme.Surface,
+            TextColor = Theme.Text,
+            HeightRequest = 46,
+            CornerRadius = 12
+        };
+        useVehicle.Clicked += (_, _) => UseSelectedVehicle(onlyIfChanged: false);
+        var compare = Theme.PrimaryButton("Сверить коды по цилиндрам");
+        compare.Clicked += async (_, _) =>
+        {
+            if (!await AccessPolicy.RequireStaffAsync(this)) return;
+            CompareAudit();
+        };
+        _auditShare.Clicked += async (_, _) =>
+        {
+            if (!await AccessPolicy.RequireStaffAsync(this) ||
+                string.IsNullOrWhiteSpace(_lastAuditText)) return;
+            await Share.Default.RequestAsync(new ShareTextRequest
+            {
+                Title = "AutoDiag Pro • отчёт по форсункам",
+                Text = _lastAuditText
+            });
+        };
+        _auditResult.LineBreakMode = LineBreakMode.WordWrap;
+        return new VerticalStackLayout
+        {
+            Spacing = 9,
+            Children =
+            {
+                Theme.Eyebrow("ВСЕ МАРКИ · ПРОВЕРКА КОДОВ ФОРСУНОК"),
+                Theme.H2("Совпадают ли коды по цилиндрам?"),
+                Theme.MutedText(InjectorCodeAudit.SourceNotice),
+                Theme.MutedText(InjectorCodeAudit.MarkingNotice),
+                _auditMake,
+                _auditModel,
+                _auditYear,
+                _auditVin,
+                useVehicle,
+                Theme.Body("Количество цилиндров (3–16):"),
+                _auditCylinders,
+                Theme.Eyebrow("КАЛИБРОВОЧНЫЕ КОДЫ С КОРПУСОВ ФОРСУНОК"),
+                Theme.MutedText("Вводи построчно: 1=ABC123, 2=DEF456 ...; ориентируйся на нумерацию цилиндров производителя."),
+                _auditMarkings,
+                Theme.Eyebrow("КОДЫ ИЗ ВНЕШНЕГО OEM-ДИАГНОСТИЧЕСКОГО ОТЧЁТА"),
+                Theme.MutedText("Вводи отдельно 1=... 2=... из Xentry/ISTA/другого совместимого отчёта. AutoDiag их не читал."),
+                _auditOemCodes,
+                compare,
+                _auditSummary,
+                _auditResult,
+                _auditShare,
+                Theme.MutedText("Сравнение введённых кодов не доказывает фактическую привязку в ЭБУ. " +
+                    "Для подтверждения требуется реальное чтение марочным протоколом и проверка ECU HW/SW.")
+            }
+        };
+    }
+
+    private void UseSelectedVehicle(bool onlyIfChanged)
+    {
+        var vehicle = _state.SelectedVehicle;
+        if (vehicle is null)
+        {
+            if (!onlyIfChanged)
+                _auditSummary.Text = "Автомобиль не выбран. Можно ввести марку, модель и VIN вручную.";
+            return;
+        }
+        if (onlyIfChanged && _auditVehicleId == vehicle.Id) return;
+        _auditVehicleId = vehicle.Id;
+        _auditMake.Text = vehicle.Make ?? "";
+        _auditModel.Text = vehicle.Model ?? "";
+        _auditYear.Text = vehicle.Year?.ToString() ?? "";
+        _auditVin.Text = vehicle.Vin ?? "";
+        _auditSummary.Text = "Данные из карточки авто. VIN и коды форсунок этим действием не считываются.";
+    }
+
+    private void InvalidateAudit()
+    {
+        _lastAuditText = "";
+        _auditShare.IsEnabled = false;
+        _auditSummary.Text = "Данные изменились — выполните сверку повторно.";
+    }
+
+    private void CompareAudit()
+    {
+        if (_auditCylinders.SelectedItem is not string selected ||
+            !int.TryParse(selected, out var count) || count is < 3 or > 16)
+        {
+            _auditSummary.Text = "Выбери число цилиндров от 3 до 16.";
+            return;
+        }
+        var markings = InjectorCodeAudit.ParseCylinderLines(_auditMarkings.Text, count);
+        var ecuReport = InjectorCodeAudit.ParseCylinderLines(_auditOemCodes.Text, count);
+        var errors = markings.Errors.Select(x => "Код с форсунки: " + x)
+            .Concat(ecuReport.Errors.Select(x => "OEM-отчёт: " + x)).ToArray();
+        if (errors.Length > 0)
+        {
+            InvalidateAudit();
+            _auditSummary.Text = "Исправь формат строк и повтори сверку.";
+            _auditResult.Text = string.Join("\n", errors);
+            return;
+        }
+        var items = Enumerable.Range(1, count)
+            .Select(i => new InjectorCodeInput(i,
+                markings.Values.TryGetValue(i, out var marking) ? marking : null,
+                ecuReport.Values.TryGetValue(i, out var code) ? code : null));
+        var report = InjectorCodeAudit.Compare(items);
+        var year = int.TryParse(_auditYear.Text, out var parsed) &&
+                   parsed is >= 1886 and <= 2100 ? parsed : (int?)null;
+        _lastAuditText = InjectorCodeAudit.BuildTextReport(
+            _auditMake.Text, _auditModel.Text, year, _auditVin.Text, report);
+        _auditSummary.Text = report.Summary;
+        _auditSummary.TextColor = report.Mismatching > 0 ? Theme.Red : Theme.Accent;
+        _auditResult.Text = _lastAuditText;
+        _auditShare.IsEnabled = true;
     }
 
     private async Task RefreshAsync()

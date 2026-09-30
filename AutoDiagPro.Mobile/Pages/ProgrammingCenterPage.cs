@@ -1,4 +1,5 @@
 using System.Globalization;
+using AutoDiagPro.SharedCoding;
 using AutoDiagPro.Mobile.Services;
 using AutoDiagPro.Mobile.Services.Obd;
 
@@ -93,109 +94,49 @@ public sealed class ProgrammingCenterPage : ContentPage
     }
 
 
-    // Display-only suggestions. VIN alone cannot prove that a specific ECU supports coding.
+    // One shared read-only catalog for every supported make; iOS cannot confirm body coding through ELM.
     private void RefreshCodingIdeas()
     {
         _codingIdeas.Clear();
         var vehicle = _state.SelectedVehicle;
-        var make = (vehicle?.Make ?? "").Trim();
-        var model = (vehicle?.Model ?? "").Trim();
-        var year = vehicle?.Year;
-        var makeIs = (string value) => make.Equals(value, StringComparison.OrdinalIgnoreCase);
-        var vag = new[] { "Volkswagen", "VW", "Audi", "Skoda", "Škoda", "Seat", "Cupra" }
-            .Contains(make, StringComparer.OrdinalIgnoreCase);
-        var bmw = make.Equals("BMW", StringComparison.OrdinalIgnoreCase) ||
-                  make.Equals("MINI", StringComparison.OrdinalIgnoreCase);
-        var skoda = make.Equals("Skoda", StringComparison.OrdinalIgnoreCase) ||
-                    make.Equals("Škoda", StringComparison.OrdinalIgnoreCase);
-        _codingIdeas.Add(Theme.Eyebrow("КАТАЛОГ КОДИРОВАНИЯ"));
-        _codingIdeas.Add(Theme.H2("Что можно настроить на этой машине"));
-        _codingIdeas.Add(Theme.MutedText(vehicle == null
-            ? "Автомобиль не выбран. Выбери его в разделе «Авто» для подбора функций."
-            : $"{make} {model} {(year.HasValue ? year.ToString() : "")} • VIN {vehicle.Vin ?? "не указан"}"));
-        var vinCheckedForSelectedVehicle = vehicle != null && _verifiedVehicleId == vehicle.Id;
-        _codingIdeas.Add(Theme.MutedText(vinCheckedForSelectedVehicle && _obd.IsConnected
-            ? _identityStatus : "VIN выбранной машины не подтверждён в текущем сеансе."));
-        _codingIdeas.Add(Theme.MutedText(
-            "Ниже — возможные опции, НЕ проверенная совместимость. " +
-            "VIN подтверждает машину, но ELM/Vgate НЕ подтверждает функции кузовного ECU. " +
-            "Для кодирования нужна проверка марочным оборудованием по HW/SW блока. Запись здесь заблокирована."));
-        if (vehicle == null) return;
+        _codingIdeas.Add(Theme.Eyebrow("КОДИРОВАНИЕ • ВСЕ МАРКИ"));
+        _codingIdeas.Add(Theme.H2("Возможные настройки именно этой машины"));
+        if (vehicle is null)
+        {
+            _codingIdeas.Add(Theme.MutedText(
+                "Выбери автомобиль в разделе «Авто». Каталог доступен для всех марок, но не без привязки к машине."));
+            return;
+        }
 
-        var ideas = new List<(string Category, string Name, string Module, string Condition)>
-        {
-            ("Комфорт", "Автоматическое запирание", "BCM / Body", "Наличие соответствующей адаптации"),
-            ("Освещение", "Coming Home / Leaving Home", "BCM / Lighting", "Штатные датчики и поддержка блока"),
-            ("Приборка", "Дополнительные настройки дисплея", "Cluster", "Конкретная приборка и версия ПО")
-        };
-        if (vag)
-        {
-            ideas.Add(("Приборка", "Тест стрелок / Needle Sweep", "17 Instruments", "Поддерживаемая комбинация приборов"));
-            ideas.Add(("Комфорт", "Закрытие окон с ключа", "09 / 46 / Door", "Совместимые дверные блоки"));
-            ideas.Add(("Освещение", "Настройка ДХО", "09 Central Electrics", "Вариант BCM и штатная оптика"));
-            if (!year.HasValue || year.Value >= 2013)
-                ideas.Add(("Освещение", "Динамические поворотники / Urban Joke", "09 BCM / Lighting",
-                    "Нужна совместимая оптика; кодирование не создаёт LED-секции"));
-            if (new[] { "Octavia", "Superb", "Kodiaq", "Golf", "Passat", "Leon", "A3" }
-                .Any(x => model.Contains(x, StringComparison.OrdinalIgnoreCase)))
-                ideas.Add(("Приборка", skoda ? "Спортивная тема vRS" : "Спортивная тема приборки",
-                    "17 Instruments / Virtual Cockpit", "Тема должна существовать в прошивке установленной приборки"));
-            if (skoda && model.Contains("Octavia", StringComparison.OrdinalIgnoreCase))
-                ideas.Add(("Освещение", "ДХО с противотуманками / vRS", "09 Central Electrics",
-                    "Только подходящий BCM, год и комплектация"));
-        }
-        if (bmw)
-        {
-            ideas.Add(("Комфорт", "Складывание зеркал при закрытии", "BDC / FEM / FRM", "Нужны электроскладываемые зеркала"));
-            ideas.Add(("Приборка", "Цифровая скорость", "KOMBI", "Функция в ПО конкретной приборки"));
-            ideas.Add(("Освещение", "Welcome lights / ДХО", "FRM / BDC", "Совместимая оптика и ПО блока"));
-        }
-        if (makeIs("Mercedes-Benz") || makeIs("Mercedes") || makeIs("Smart"))
-        {
-            ideas.Add(("Комфорт", "Складывание зеркал", "SAM / Door", "Электроскладывание и проверенная опция блока"));
-            ideas.Add(("Комфорт", "Автозапирание", "SAM / EZS", "Наличие настройки в конкретном блоке"));
-            ideas.Add(("Освещение", "Подсветка при открытии / Coming Home", "Front / Rear SAM",
-                "Конкретная платформа, версия ПО, штатная оптика"));
-        }
-        if (makeIs("Toyota") || makeIs("Lexus"))
-        {
-            ideas.Add(("Комфорт", "Автозапирание / отпирание", "Main Body ECU",
-                "Опция Customization должна поддерживаться автомобилем"));
-            ideas.Add(("Комфорт", "Открытие окон с пульта", "Main Body ECU",
-                "Совместимые стеклоподъёмники и штатная функция"));
-            ideas.Add(("Освещение", "Задержка выключения фар", "Main Body ECU",
-                "Параметр должен присутствовать у этого ECU"));
-        }
-        if (makeIs("Ford") || makeIs("Lincoln"))
-        {
-            ideas.Add(("Комфорт", "Global open / close", "BCM",
-                "Совместимый BCM и дверное оборудование"));
-            ideas.Add(("Освещение", "Параметры ДХО", "BCM",
-                "Поддержка комплектацией, рынком и прошивкой BCM"));
-            ideas.Add(("Приборка", "Параметры IPC", "IPC",
-                "Список доступных функций конкретного ПО"));
-        }
-        if (makeIs("Hyundai") || makeIs("Kia") || makeIs("Genesis"))
-        {
-            ideas.Add(("Комфорт", "Автозапирание / отпирание", "BCM",
-                "Конкретная комплектация и ПО блока"));
-            ideas.Add(("Освещение", "Welcome / Escort lights", "BCM",
-                "Штатная оптика и поддерживаемая настройка"));
-        }
+        var vinChecked = _obd.IsConnected && _verifiedVehicleId == vehicle.Id;
+        _codingIdeas.Add(Theme.MutedText(
+            $"{vehicle.Make} {vehicle.Model} {vehicle.Year} • VIN {vehicle.Vin ?? "не указан"}"));
+        _codingIdeas.Add(Theme.MutedText(vinChecked
+            ? _identityStatus
+            : "VIN выбранного автомобиля не подтверждён при текущем подключении."));
+        _codingIdeas.Add(Theme.MutedText(
+            "Статус ВСЕХ вариантов ниже: пример возможной заводской опции, НЕ доказанная кодировка. " +
+            "Даже совпавший VIN и ответ двигателя не подтверждают поддержку BCM/приборки. " +
+            "Проверка требует OEM-документации и идентификации целевого ECU. Запись недоступна."));
+
+        var ideas = SharedCodingCatalog.ForVehicle(vehicle.Make, vehicle.Model, vehicle.Year);
+        _codingIdeas.Add(Theme.MutedText(
+            $"Группа: {SharedCodingCatalog.GroupForMake(vehicle.Make)} • " +
+            $"Каталог: {ideas.Count} возможных пунктов (не гарантированных кодировок)"));
         foreach (var item in ideas)
         {
             _codingIdeas.Add(Theme.CardView(new VerticalStackLayout
             {
-                Spacing = 4,
+                Spacing = 5,
                 Children =
                 {
                     Theme.Eyebrow(item.Category),
                     Theme.H2(item.Name),
-                    Theme.MutedText(vinCheckedForSelectedVehicle
-                        ? "VIN проверен • целевой ECU / функция НЕ подтверждены"
-                        : "Пока только идея • VIN / ECU не проверены"),
-                    Theme.Body("Блок: " + item.Module),
-                    Theme.MutedText("Условия: " + item.Condition)
+                    Theme.MutedText("Источник: " + item.Source +
+                        " • " + (vinChecked ? "VIN совпал" : "VIN ещё не проверен")),
+                    Theme.Body("Целевой блок: " + item.Module),
+                    Theme.MutedText("Условия: " + item.Condition),
+                    Theme.MutedText("Проверка реальной адаптации: ещё не пройдена")
                 }
             }));
         }

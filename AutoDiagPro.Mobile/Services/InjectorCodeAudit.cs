@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using AutoDiagPro.SharedCoding;
 
 namespace AutoDiagPro.SharedDiagnostics;
 
@@ -33,6 +34,33 @@ public static class InjectorCodeAudit
     public const string MarkingNotice =
         "Вводите именно калибровочный/коррекционный код форсунки, а НЕ каталожный номер детали. " +
         "Для некоторых двигателей такая кодировка не применяется.";
+
+    public static string EquipmentGuide(string? make)
+    {
+        var group = SharedCodingCatalog.GroupForMake(make);
+        var guidance = group switch
+        {
+            "VAG" or "PORSCHE" => "Для реального чтения кодов проверьте поддержку конкретного ECU в ODIS/VCDS или OEM-совместимой диагностике.",
+            "MERCEDES" => "Для Mercedes CDI используйте Xentry либо подтверждённое решение для точного двигателя и блока CDI.",
+            "BMW" or "LUXURY" => "Проверьте точный двигатель и ECU через ISTA или документацию и совместимое OEM-оборудование.",
+            "TOYOTA" => "Проверьте поддержку чтения Injector Compensation через Techstream/OEM для конкретного двигателя.",
+            "FORD" => "Проверьте поддержанный марочный доступ IDS/FDRS к параметрам именно этого ECU.",
+            "HYUNDAI" => "Проверьте совместимую OEM-диагностику GDS по двигателю и версии ECU.",
+            "STELLANTIS" => "Марочный интерфейс зависит от бренда, модели, двигателя и защищённого шлюза.",
+            "RENAULT" => "Проверьте Renault/Dacia OEM-диагностику и профиль конкретного ЭБУ.",
+            "NISSAN" => "Проверьте поддержку Nissan/Infiniti CONSULT и точный двигатель.",
+            "HONDA" => "Проверьте поддержку Honda/Acura HDS и конкретный ЭБУ.",
+            "MAZDA" => "Проверьте OEM Mazda диагностику и документацию по данному двигателю.",
+            "MITSUBISHI" => "Проверьте Mitsubishi OEM/MUT-совместимый инструмент и конкретный ЭБУ.",
+            "SUBARU" => "Проверьте Subaru OEM/SSM и модельный профиль ЭБУ.",
+            "VOLVO" => "Проверьте Volvo VIDA либо заводскую документацию и поддержанный ЭБУ.",
+            "JLR" => "Проверьте JLR OEM диагностику, поколение блока и двигатель.",
+            "GM" => "Проверьте совместимую GM OEM диагностику и поддерживаемый двигатель.",
+            "EV_OEM" => "Если автомобиль полностью электрический, топливных форсунок у него нет: проверка не применяется.",
+            _ => "Нужна документация изготовителя и OEM-совместимый сканер для точного двигателя/ЭБУ."
+        };
+        return guidance + " AutoDiag пока не реализует автоматическое OEM-чтение кодов форсунок для этой марки.";
+    }
 
     public static string NormalizeCode(string? value)
     {
@@ -142,9 +170,10 @@ public static class InjectorCodeAudit
         sb.AppendLine("AUTODIAG PRO — СВЕРКА КОДОВ ФОРСУНОК (РУЧНОЙ ОТЧЁТ)");
         sb.AppendLine($"UTC: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
         sb.AppendLine($"Автомобиль: {make ?? "не указан"} {model ?? ""} {(year.HasValue && year > 0 ? year.ToString() : "")}".Trim());
-        sb.AppendLine($"VIN: {(string.IsNullOrWhiteSpace(vin) ? "не подтверждён" : vin)}");
+        sb.AppendLine($"VIN из карточки (не подтверждён ECU): {(string.IsNullOrWhiteSpace(vin) ? "не указан" : vin)}");
         sb.AppendLine(SourceNotice);
         sb.AppendLine(MarkingNotice);
+        sb.AppendLine(EquipmentGuide(make));
         sb.AppendLine();
         sb.AppendLine("Цилиндр | Код с форсунки | Код по OEM-отчёту | Результат");
         foreach (var row in audit.Rows)

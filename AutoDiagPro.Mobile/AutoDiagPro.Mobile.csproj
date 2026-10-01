@@ -34,5 +34,3 @@
     <MauiImage Update="Resources\Images\client_avatar.svg" BaseSize="64,64" />
   </ItemGroup>
 </Project>
-
-[executed on device: Rubakha (3db26fc9-a901-43ec-82ae-bbafd3175a39)]

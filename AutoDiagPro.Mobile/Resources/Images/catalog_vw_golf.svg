@@ -1,1 +1,17 @@
-Image file: C:\Users\rubah\Desktop\AutoDiagPro\Source\PremiumUI\iOS\AutoDiagPro.Mobile\Resources\Images\catalog_vw_golf.svg (image/svg+xml)
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#08111A"/><stop offset="1" stop-color="#101E2A"/></linearGradient><radialGradient id="glow"><stop offset="0" stop-color="#2F80FF" stop-opacity=".34"/><stop offset="1" stop-color="#2F80FF" stop-opacity="0"/></radialGradient></defs>
+<rect width="760" height="360" fill="url(#bg)"/>
+<ellipse cx="390" cy="240" rx="300" ry="180" fill="url(#glow)"/>
+<rect y="275" width="760" height="85" fill="#060B10"/>
+<ellipse cx="390" cy="288" rx="240" ry="40" fill="#000000" opacity=".55"/>
+<circle cx="260" cy="267" r="50" fill="#05080B"/><circle cx="260" cy="267" r="32" fill="#252D34"/><circle cx="260" cy="267" r="16" fill="#96A0A8"/>
+<circle cx="535" cy="267" r="50" fill="#05080B"/><circle cx="535" cy="267" r="32" fill="#252D34"/><circle cx="535" cy="267" r="16" fill="#96A0A8"/>
+<rect x="165" y="158" width="450" height="112" rx="48" fill="#9AA4AD" stroke="#E1EBF2" stroke-opacity=".6" stroke-width="3"/>
+<path d="M245 160 L315 104 H485 L555 160 Z" fill="#4B5B68"/>
+<path d="M299 116 H335 L316 153 H264 Z" fill="#0B1822"/>
+<path d="M350 116 H472 L527 153 H335 Z" fill="#0B1822"/>
+<rect x="179" y="194" width="45" height="16" rx="6" fill="#DAF2FF"/>
+<rect x="562" y="194" width="42" height="16" rx="6" fill="#F04852"/>
+<rect x="333" y="220" width="114" height="30" rx="10" fill="#0E141A" stroke="#5F707C" stroke-width="2"/>
+<rect x="330" y="258" width="118" height="9" rx="4" fill="#2F80FF"/>
+</svg>

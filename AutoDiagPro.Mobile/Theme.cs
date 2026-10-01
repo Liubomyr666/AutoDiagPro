@@ -12,8 +12,8 @@ public static class Theme
     public static readonly Color Text = Color.FromArgb("#F4F8FC");
     public static readonly Color TextSoft = Color.FromArgb("#C4D2DE");
     public static readonly Color Muted = Color.FromArgb("#7890A3");
-    public static readonly Color Accent = Color.FromArgb("#2F80FF");
-    public static readonly Color AccentSoft = Color.FromArgb("#0C2442");
+    public static readonly Color Accent = Color.FromArgb("#248BFF");
+    public static readonly Color AccentSoft = Color.FromArgb("#10243A");
     public static readonly Color Green = Color.FromArgb("#35D08A");
     public static readonly Color Red = Color.FromArgb("#FF6473");
 
@@ -117,7 +117,7 @@ public static class Theme
     {
         Text = text,
         BackgroundColor = Accent,
-        TextColor = Color.FromArgb("#111315"),
+        TextColor = Colors.White,
         CornerRadius = 14,
         HeightRequest = 46,
         FontAttributes = FontAttributes.Bold,

@@ -88,7 +88,7 @@ public sealed class EngineCatalogPage : ContentPage
         new("Dacia","Duster","II • 2017–2024","1.0 TCe • 1.3 TCe • 1.5 Blue dCi","DC","petrol|diesel|popular","Dacia Duster 2019 SUV","Что проверить"),
         new("Tesla","Model 3","2017–2024","RWD • Long Range • Performance","TS","electric|popular","Tesla Model 3 sedan","Перед покупкой"),
         new("Tesla","Model Y","2020–2025","RWD • Long Range • Performance","TS","electric|popular","Tesla Model Y SUV","Перед покупкой")
-    };;
+    };
 
     public EngineCatalogPage()
     {

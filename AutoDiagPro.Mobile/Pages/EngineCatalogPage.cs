@@ -208,13 +208,12 @@ public sealed class EngineCatalogPage : ContentPage
 
         if (data.Length == 0)
         {
-            _cards.Add(
-                Theme.CardView(
-                    Theme.MutedText("По этому фильтру ничего не найдено. Измени фильтр или строку поиска."),
-                    new Thickness(16),
-                    16),
-                0, 0);
-            Grid.SetColumnSpan(_cards.Children[0], 2);
+            var empty = Theme.CardView(
+                Theme.MutedText("По этому фильтру ничего не найдено. Измени фильтр или строку поиска."),
+                new Thickness(16),
+                16);
+            _cards.Add(empty, 0, 0);
+            _cards.SetColumnSpan(empty, 2);
             return;
         }
 

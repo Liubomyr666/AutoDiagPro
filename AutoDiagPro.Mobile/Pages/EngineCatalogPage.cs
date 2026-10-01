@@ -50,26 +50,45 @@ public sealed class EngineCatalogPage : ContentPage
     private readonly CatalogItem[] _items =
     {
         new("Volkswagen","Golf","Mk7 • 2012–2020","1.2 TSI • 1.4 TSI • 1.6 TDI • 2.0 TDI • GTE","VW","petrol|diesel|hybrid|popular","Volkswagen Golf Mk7 hatchback","Типовые проблемы"),
-        new("BMW","3 Series","F30 • 2012–2019","1.6 • 2.0 • 3.0 • B48 • B58 • N47","BMW","petrol|diesel|hybrid|popular","BMW F30 3 Series sedan","Перед покупкой"),
-        new("Mercedes-Benz","C-Class","W205 • 2014–2021","1.6 • 2.0 • 2.1 • 3.0 • M274 • OM654","MB","petrol|diesel|hybrid|popular","Mercedes W205 C Class sedan","Что проверить"),
-        new("Audi","A4","B9 • 2015–2024","1.4 TFSI • 2.0 TFSI • 2.0 TDI","AU","petrol|diesel|hybrid|popular","Audi A4 B9 sedan","Типовые проблемы"),
-        new("Skoda","Octavia","A7 • 2013–2020","1.2 TSI • 1.4 TSI • 1.6 TDI • 2.0 TDI","SK","petrol|diesel|popular","Skoda Octavia III 2017","Перед покупкой"),
         new("Volkswagen","Passat","B8 • 2014–2023","1.4 TSI • 1.5 TSI • 2.0 TSI • 1.6 TDI • 2.0 TDI","VW","petrol|diesel|hybrid|popular","Volkswagen Passat B8 sedan","Типовые проблемы"),
+        new("Volkswagen","Tiguan","II • 2016–2024","1.4 TSI • 1.5 TSI • 2.0 TSI • 2.0 TDI","VW","petrol|diesel|hybrid|popular","Volkswagen Tiguan 2019 SUV","Перед покупкой"),
+        new("BMW","3 Series","F30 • 2012–2019","1.6 • 2.0 • 3.0 • B48 • B58 • N47","BMW","petrol|diesel|hybrid|popular","BMW F30 3 Series sedan","Перед покупкой"),
+        new("BMW","5 Series","G30 • 2017–2023","2.0 • 3.0 • B48 • B58 • B47 • B57","BMW","petrol|diesel|hybrid|popular","BMW G30 5 Series sedan","Типовые проблемы"),
+        new("BMW","X3","G01 • 2017–2024","2.0 • 3.0 • B48 • B58 • B47 • B57","BMW","petrol|diesel|hybrid|popular","BMW X3 G01 SUV","Что проверить"),
+        new("Mercedes-Benz","C-Class","W205 • 2014–2021","1.6 • 2.0 • 2.1 • 3.0 • M274 • OM654","MB","petrol|diesel|hybrid|popular","Mercedes W205 C Class sedan","Что проверить"),
+        new("Mercedes-Benz","E-Class","W213 • 2016–2023","2.0 • 3.0 • OM654 • OM656","MB","petrol|diesel|hybrid|popular","Mercedes W213 E Class sedan","Перед покупкой"),
+        new("Mercedes-Benz","GLC","X253 • 2015–2022","2.0 • 2.1 • 3.0 • M274 • OM654","MB","petrol|diesel|hybrid|popular","Mercedes GLC X253 SUV","Типовые проблемы"),
+        new("Audi","A4","B9 • 2015–2024","1.4 TFSI • 2.0 TFSI • 2.0 TDI","AU","petrol|diesel|hybrid|popular","Audi A4 B9 sedan","Типовые проблемы"),
+        new("Audi","A6","C8 • 2018–2025","2.0 TFSI • 3.0 TFSI • 2.0 TDI • 3.0 TDI","AU","petrol|diesel|hybrid|popular","Audi A6 C8 sedan","Что проверить"),
+        new("Audi","Q5","FY • 2017–2024","2.0 TFSI • 2.0 TDI • 3.0 TDI • TFSI e","AU","petrol|diesel|hybrid|popular","Audi Q5 FY SUV","Перед покупкой"),
+        new("Skoda","Octavia","A7 • 2013–2020","1.2 TSI • 1.4 TSI • 1.6 TDI • 2.0 TDI","SK","petrol|diesel|popular","Skoda Octavia III 2017","Перед покупкой"),
+        new("Skoda","Superb","III • 2015–2024","1.4 TSI • 1.5 TSI • 2.0 TSI • 1.6 TDI • 2.0 TDI","SK","petrol|diesel|hybrid|popular","Skoda Superb III 2018","Перед покупкой"),
+        new("Skoda","Kodiaq","I • 2016–2024","1.4 TSI • 1.5 TSI • 2.0 TSI • 2.0 TDI","SK","petrol|diesel|popular","Skoda Kodiaq 2019 SUV","Что проверить"),
+        new("Seat","Leon","5F • 2012–2020","1.2 TSI • 1.4 TSI • 1.8 TSI • 1.6 TDI • 2.0 TDI","SE","petrol|diesel","Seat Leon 5F hatchback","Типовые проблемы"),
         new("Toyota","Corolla","E210 • 2018–2025","1.2 Turbo • 1.8 Hybrid • 2.0 Hybrid","TY","petrol|hybrid|popular","Toyota Corolla E210 sedan","Что проверить"),
+        new("Toyota","RAV4","XA50 • 2018–2025","2.0 • 2.5 Hybrid • Plug-in Hybrid","TY","petrol|hybrid|popular","Toyota RAV4 XA50 SUV","Перед покупкой"),
+        new("Toyota","Camry","XV70 • 2017–2024","2.0 • 2.5 • 2.5 Hybrid • 3.5","TY","petrol|hybrid|popular","Toyota Camry XV70 sedan","Что проверить"),
         new("Ford","Focus","Mk3 • 2011–2018","1.0 EcoBoost • 1.5 EcoBoost • 1.6 TDCi • 2.0 TDCi","FD","petrol|diesel|popular","Ford Focus Mk3 hatchback","Типовые проблемы"),
+        new("Ford","Kuga","II • 2012–2019","1.5 EcoBoost • 2.0 EcoBoost • 1.5 TDCi • 2.0 TDCi","FD","petrol|diesel|popular","Ford Kuga 2017 SUV","Перед покупкой"),
         new("Renault","Megane","IV • 2016–2023","1.2 TCe • 1.3 TCe • 1.5 dCi • 1.6 dCi","RN","petrol|diesel|popular","Renault Megane IV hatchback","Перед покупкой"),
+        new("Renault","Clio","V • 2019–2025","1.0 TCe • 1.3 TCe • 1.5 Blue dCi • E-Tech","RN","petrol|diesel|hybrid","Renault Clio V hatchback","Что проверить"),
         new("Peugeot","308","T9 • 2013–2021","1.2 PureTech • 1.6 THP • 1.5 BlueHDi","PG","petrol|diesel","Peugeot 308 T9 hatchback","Типовые проблемы"),
+        new("Peugeot","3008","II • 2016–2024","1.2 PureTech • 1.6 PureTech • 1.5 BlueHDi • Hybrid","PG","petrol|diesel|hybrid|popular","Peugeot 3008 2019 SUV","Перед покупкой"),
         new("Hyundai","Tucson","TL • 2015–2021","1.6 T-GDI • 2.0 • 1.7 CRDi • 2.0 CRDi","HY","petrol|diesel|popular","Hyundai Tucson 2018","Что проверить"),
+        new("Hyundai","i30","PD • 2017–2024","1.0 T-GDI • 1.4 T-GDI • 1.5 T-GDI • 1.6 CRDi","HY","petrol|diesel","Hyundai i30 2019 hatchback","Типовые проблемы"),
         new("Kia","Ceed","CD • 2018–2024","1.0 T-GDI • 1.4 T-GDI • 1.6 CRDi","KIA","petrol|diesel|popular","Kia Ceed 2019","Типовые проблемы"),
+        new("Kia","Sportage","QL • 2015–2021","1.6 GDI • 1.6 T-GDI • 1.7 CRDi • 2.0 CRDi","KIA","petrol|diesel|popular","Kia Sportage QL SUV","Перед покупкой"),
         new("Opel","Astra","K • 2015–2022","1.0 Turbo • 1.4 Turbo • 1.6 CDTI","OP","petrol|diesel","Opel Astra K hatchback","Перед покупкой"),
         new("Nissan","Qashqai","J11 • 2013–2021","1.2 DIG-T • 1.3 DIG-T • 1.5 dCi • 1.6 dCi","NS","petrol|diesel|popular","Nissan Qashqai J11 SUV","Что проверить"),
+        new("Nissan","X-Trail","T32 • 2013–2021","1.6 DIG-T • 1.6 dCi • 2.0 dCi • 2.5","NS","petrol|diesel|popular","Nissan X Trail T32 SUV","Перед покупкой"),
         new("Honda","Civic","X • 2016–2022","1.0 VTEC Turbo • 1.5 VTEC Turbo • 2.0","HN","petrol|popular","Honda Civic X hatchback","Типовые проблемы"),
+        new("Mazda","CX-5","KF • 2017–2024","2.0 Skyactiv-G • 2.5 Skyactiv-G • 2.2 Skyactiv-D","MZ","petrol|diesel|popular","Mazda CX-5 KF SUV","Перед покупкой"),
+        new("Mazda","6","GJ/GL • 2012–2024","2.0 Skyactiv-G • 2.5 Skyactiv-G • 2.2 Skyactiv-D","MZ","petrol|diesel","Mazda 6 GL sedan","Что проверить"),
+        new("Volvo","XC60","II • 2017–2024","T5 • T6 • B4 • B5 • D4 • D5 • Recharge","VO","petrol|diesel|hybrid|popular","Volvo XC60 2019 SUV","Перед покупкой"),
+        new("Dacia","Duster","II • 2017–2024","1.0 TCe • 1.3 TCe • 1.5 Blue dCi","DC","petrol|diesel|popular","Dacia Duster 2019 SUV","Что проверить"),
         new("Tesla","Model 3","2017–2024","RWD • Long Range • Performance","TS","electric|popular","Tesla Model 3 sedan","Перед покупкой"),
-        new("BMW","5 Series","G30 • 2017–2023","2.0 • 3.0 • B48 • B58 • B47 • B57","BMW","petrol|diesel|hybrid|popular","BMW G30 5 Series sedan","Типовые проблемы"),
-        new("Mercedes-Benz","E-Class","W213 • 2016–2023","2.0 • 3.0 • OM654 • OM656","MB","petrol|diesel|hybrid|popular","Mercedes W213 E Class sedan","Перед покупкой"),
-        new("Audi","A6","C8 • 2018–2025","2.0 TFSI • 3.0 TFSI • 2.0 TDI • 3.0 TDI","AU","petrol|diesel|hybrid|popular","Audi A6 C8 sedan","Что проверить"),
-        new("Skoda","Superb","III • 2015–2024","1.4 TSI • 1.5 TSI • 2.0 TSI • 1.6 TDI • 2.0 TDI","SK","petrol|diesel|hybrid","Skoda Superb III 2018","Перед покупкой")
-    };
+        new("Tesla","Model Y","2020–2025","RWD • Long Range • Performance","TS","electric|popular","Tesla Model Y SUV","Перед покупкой")
+    };;
 
     public EngineCatalogPage()
     {
@@ -110,7 +129,7 @@ public sealed class EngineCatalogPage : ContentPage
     private static HttpClient CreatePhotoHttp()
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("AutoDiagPro-iOS/3.27");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("AutoDiagPro-iOS/3.27.0");
         return client;
     }
 
@@ -137,7 +156,7 @@ public sealed class EngineCatalogPage : ContentPage
             }
         }, 0, 0);
 
-        var counter = Theme.Pill("20 моделей", Theme.Accent);
+        var counter = Theme.Pill($"{_items.Length} моделей", Theme.Accent);
         counter.VerticalOptions = LayoutOptions.Start;
         grid.Add(counter, 1, 0);
         return grid;

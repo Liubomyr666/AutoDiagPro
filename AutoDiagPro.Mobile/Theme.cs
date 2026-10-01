@@ -1,23 +1,23 @@
-using Microsoft.Maui.Controls.Shapes;
+﻿using Microsoft.Maui.Controls.Shapes;
 
 namespace AutoDiagPro.Mobile;
 
 public static class Theme
 {
-    public static readonly Color Page = Color.FromArgb("#090C0E");
-    public static readonly Color Surface = Color.FromArgb("#0E1215");
-    public static readonly Color Card = Color.FromArgb("#121619");
-    public static readonly Color Card2 = Color.FromArgb("#171C20");
-    public static readonly Color Line = Color.FromArgb("#252C31");
-    public static readonly Color Text = Color.FromArgb("#F4F5F6");
-    public static readonly Color TextSoft = Color.FromArgb("#C0C6CA");
-    public static readonly Color Muted = Color.FromArgb("#7F8A91");
-    public static readonly Color Accent = Color.FromArgb("#E7A13B");
-    public static readonly Color AccentSoft = Color.FromArgb("#241B10");
-    public static readonly Color Green = Color.FromArgb("#46C98B");
-    public static readonly Color Red = Color.FromArgb("#EE636B");
+    public static readonly Color Page = Color.FromArgb("#070B10");
+    public static readonly Color Surface = Color.FromArgb("#0B1118");
+    public static readonly Color Card = Color.FromArgb("#101720");
+    public static readonly Color Card2 = Color.FromArgb("#151E28");
+    public static readonly Color Line = Color.FromArgb("#263545");
+    public static readonly Color Text = Color.FromArgb("#F4F8FC");
+    public static readonly Color TextSoft = Color.FromArgb("#C4D2DE");
+    public static readonly Color Muted = Color.FromArgb("#7890A3");
+    public static readonly Color Accent = Color.FromArgb("#2F80FF");
+    public static readonly Color AccentSoft = Color.FromArgb("#0C2442");
+    public static readonly Color Green = Color.FromArgb("#35D08A");
+    public static readonly Color Red = Color.FromArgb("#FF6473");
 
-    public static Border CardView(View content, Thickness? padding = null, double radius = 16) =>
+    public static Border CardView(View content, Thickness? padding = null, double radius = 18) =>
         new()
         {
             BackgroundColor = Card,
@@ -118,7 +118,7 @@ public static class Theme
         Text = text,
         BackgroundColor = Accent,
         TextColor = Color.FromArgb("#111315"),
-        CornerRadius = 12,
+        CornerRadius = 14,
         HeightRequest = 46,
         FontAttributes = FontAttributes.Bold,
         FontAutoScalingEnabled = false
@@ -131,7 +131,7 @@ public static class Theme
         TextColor = Text,
         BorderColor = Line,
         BorderWidth = 1,
-        CornerRadius = 12,
+        CornerRadius = 14,
         HeightRequest = 46,
         FontAttributes = FontAttributes.Bold,
         FontAutoScalingEnabled = false

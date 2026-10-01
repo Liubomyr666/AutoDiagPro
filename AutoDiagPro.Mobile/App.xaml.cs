@@ -1,4 +1,4 @@
-using AutoDiagPro.Mobile.Pages;
+﻿using AutoDiagPro.Mobile.Pages;
 
 namespace AutoDiagPro.Mobile;
 
@@ -12,7 +12,7 @@ public partial class App : Application
 
         _bootPage = new ContentPage
         {
-            BackgroundColor = Color.FromArgb("#090C0E"),
+            BackgroundColor = Color.FromArgb("#070B10"),
             Content = new Grid
             {
                 Padding = new Thickness(28),
@@ -37,7 +37,7 @@ public partial class App : Application
                             {
                                 Text = "Запуск приложения…",
                                 FontSize = 14,
-                                TextColor = Color.FromArgb("#E7A13B"),
+                                TextColor = Color.FromArgb("#2F80FF"),
                                 HorizontalTextAlignment = TextAlignment.Center
                             }
                         }
@@ -83,7 +83,7 @@ public partial class App : Application
         var retry = new Button
         {
             Text = "Повторить запуск",
-            BackgroundColor = Color.FromArgb("#E7A13B"),
+            BackgroundColor = Color.FromArgb("#2F80FF"),
             TextColor = Color.FromArgb("#111315"),
             CornerRadius = 12,
             HeightRequest = 48,
@@ -100,7 +100,7 @@ public partial class App : Application
 
         var page = new ContentPage
         {
-            BackgroundColor = Color.FromArgb("#090C0E")
+            BackgroundColor = Color.FromArgb("#070B10")
         };
 
         retry.Clicked += (_, _) =>

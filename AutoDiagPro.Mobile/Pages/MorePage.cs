@@ -1,4 +1,4 @@
-using AutoDiagPro.Mobile.Services;
+﻿using AutoDiagPro.Mobile.Services;
 
 namespace AutoDiagPro.Mobile.Pages;
 
@@ -45,6 +45,7 @@ public sealed class MorePage : ContentPage
                     }),
                     BuildGroup("РЕМОНТ И СЕРВИС", new[]
                     {
+                        Item("Каталог двигателей", "Модели • поколения • моторы • типовые проблемы", "enginecatalog"),
                         Item("Repair Brain / До-После", "Диагностика → ремонт → контроль", "repair"),
                         Item("AI помощник", "Неисправность • проверки • детали", "ai"),
                         Item("Сервис / ТО", "Интервалы и напоминания", "service"),

@@ -1,4 +1,4 @@
-using AutoDiagPro.Mobile.Services;
+﻿using AutoDiagPro.Mobile.Services;
 
 namespace AutoDiagPro.Mobile.Pages;
 
@@ -94,7 +94,7 @@ public sealed class DashboardPage : ContentPage
 
         var grid = new Grid { HeightRequest = 260 };
         grid.Add(new Image { Source = "hero_car.jpg", Aspect = Aspect.AspectFill });
-        grid.Add(new BoxView { Color = Color.FromArgb("#090C0E"), Opacity = 0.60 });
+        grid.Add(new BoxView { Color = Color.FromArgb("#070B10"), Opacity = 0.60 });
         grid.Add(content);
 
         return new Border

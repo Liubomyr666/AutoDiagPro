@@ -53,14 +53,14 @@ public sealed class EngineCatalogPage : ContentPage
         new("BMW","3 Series","F30 • 2012–2019","1.6 • 2.0 • 3.0 • B48 • B58 • N47","BMW","petrol|diesel|hybrid|popular","BMW F30 3 Series sedan","Перед покупкой"),
         new("Mercedes-Benz","C-Class","W205 • 2014–2021","1.6 • 2.0 • 2.1 • 3.0 • M274 • OM654","MB","petrol|diesel|hybrid|popular","Mercedes W205 C Class sedan","Что проверить"),
         new("Audi","A4","B9 • 2015–2024","1.4 TFSI • 2.0 TFSI • 2.0 TDI","AU","petrol|diesel|hybrid|popular","Audi A4 B9 sedan","Типовые проблемы"),
-        new("Skoda","Octavia","A7 • 2013–2020","1.2 TSI • 1.4 TSI • 1.6 TDI • 2.0 TDI","SK","petrol|diesel|popular","Skoda Octavia A7 sedan","Перед покупкой"),
+        new("Skoda","Octavia","A7 • 2013–2020","1.2 TSI • 1.4 TSI • 1.6 TDI • 2.0 TDI","SK","petrol|diesel|popular","Skoda Octavia III 2017","Перед покупкой"),
         new("Volkswagen","Passat","B8 • 2014–2023","1.4 TSI • 1.5 TSI • 2.0 TSI • 1.6 TDI • 2.0 TDI","VW","petrol|diesel|hybrid|popular","Volkswagen Passat B8 sedan","Типовые проблемы"),
         new("Toyota","Corolla","E210 • 2018–2025","1.2 Turbo • 1.8 Hybrid • 2.0 Hybrid","TY","petrol|hybrid|popular","Toyota Corolla E210 sedan","Что проверить"),
         new("Ford","Focus","Mk3 • 2011–2018","1.0 EcoBoost • 1.5 EcoBoost • 1.6 TDCi • 2.0 TDCi","FD","petrol|diesel|popular","Ford Focus Mk3 hatchback","Типовые проблемы"),
         new("Renault","Megane","IV • 2016–2023","1.2 TCe • 1.3 TCe • 1.5 dCi • 1.6 dCi","RN","petrol|diesel|popular","Renault Megane IV hatchback","Перед покупкой"),
         new("Peugeot","308","T9 • 2013–2021","1.2 PureTech • 1.6 THP • 1.5 BlueHDi","PG","petrol|diesel","Peugeot 308 T9 hatchback","Типовые проблемы"),
-        new("Hyundai","Tucson","TL • 2015–2021","1.6 T-GDI • 2.0 • 1.7 CRDi • 2.0 CRDi","HY","petrol|diesel|popular","Hyundai Tucson TL SUV","Что проверить"),
-        new("Kia","Ceed","CD • 2018–2024","1.0 T-GDI • 1.4 T-GDI • 1.6 CRDi","KIA","petrol|diesel|popular","Kia Ceed CD hatchback","Типовые проблемы"),
+        new("Hyundai","Tucson","TL • 2015–2021","1.6 T-GDI • 2.0 • 1.7 CRDi • 2.0 CRDi","HY","petrol|diesel|popular","Hyundai Tucson 2018","Что проверить"),
+        new("Kia","Ceed","CD • 2018–2024","1.0 T-GDI • 1.4 T-GDI • 1.6 CRDi","KIA","petrol|diesel|popular","Kia Ceed 2019","Типовые проблемы"),
         new("Opel","Astra","K • 2015–2022","1.0 Turbo • 1.4 Turbo • 1.6 CDTI","OP","petrol|diesel","Opel Astra K hatchback","Перед покупкой"),
         new("Nissan","Qashqai","J11 • 2013–2021","1.2 DIG-T • 1.3 DIG-T • 1.5 dCi • 1.6 dCi","NS","petrol|diesel|popular","Nissan Qashqai J11 SUV","Что проверить"),
         new("Honda","Civic","X • 2016–2022","1.0 VTEC Turbo • 1.5 VTEC Turbo • 2.0","HN","petrol|popular","Honda Civic X hatchback","Типовые проблемы"),
@@ -68,7 +68,7 @@ public sealed class EngineCatalogPage : ContentPage
         new("BMW","5 Series","G30 • 2017–2023","2.0 • 3.0 • B48 • B58 • B47 • B57","BMW","petrol|diesel|hybrid|popular","BMW G30 5 Series sedan","Типовые проблемы"),
         new("Mercedes-Benz","E-Class","W213 • 2016–2023","2.0 • 3.0 • OM654 • OM656","MB","petrol|diesel|hybrid|popular","Mercedes W213 E Class sedan","Перед покупкой"),
         new("Audi","A6","C8 • 2018–2025","2.0 TFSI • 3.0 TFSI • 2.0 TDI • 3.0 TDI","AU","petrol|diesel|hybrid|popular","Audi A6 C8 sedan","Что проверить"),
-        new("Skoda","Superb","III • 2015–2024","1.4 TSI • 1.5 TSI • 2.0 TSI • 1.6 TDI • 2.0 TDI","SK","petrol|diesel|hybrid","Skoda Superb III sedan","Перед покупкой")
+        new("Skoda","Superb","III • 2015–2024","1.4 TSI • 1.5 TSI • 2.0 TSI • 1.6 TDI • 2.0 TDI","SK","petrol|diesel|hybrid","Skoda Superb III 2018","Перед покупкой")
     };
 
     public EngineCatalogPage()

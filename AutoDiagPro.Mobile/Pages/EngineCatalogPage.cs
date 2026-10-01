@@ -405,7 +405,7 @@ public sealed class EngineCatalogPage : ContentPage
         }
         finally
         {
-            await Task.Delay(140);
+            await Task.Delay(400);
             _photoGate.Release();
         }
     }

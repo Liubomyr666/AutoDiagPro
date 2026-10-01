@@ -213,7 +213,6 @@ public sealed class EngineCatalogPage : ContentPage
                 new Thickness(16),
                 16);
             _cards.Add(empty, 0, 0);
-            _cards.SetColumnSpan(empty, 2);
             return;
         }
 

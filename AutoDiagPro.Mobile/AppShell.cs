@@ -1,4 +1,4 @@
-using AutoDiagPro.Mobile.Pages;
+﻿using AutoDiagPro.Mobile.Pages;
 
 namespace AutoDiagPro.Mobile;
 
@@ -30,6 +30,7 @@ public sealed class AppShell : Shell
         Routing.RegisterRoute("notifications", typeof(NotificationsPage));
         Routing.RegisterRoute("audit", typeof(AuditPage));
         Routing.RegisterRoute("vehicleidentity", typeof(VehicleIdentityPage));
+        Routing.RegisterRoute("enginecatalog", typeof(EngineCatalogPage));
         Routing.RegisterRoute("diesel", typeof(DieselPage));
         Routing.RegisterRoute("injectors", typeof(InjectorPage));
 
@@ -69,3 +70,5 @@ public sealed class AppShell : Shell
             ContentTemplate = new DataTemplate(pageType)
         };
 }
+
+[executed on device: Rubakha (3db26fc9-a901-43ec-82ae-bbafd3175a39)]

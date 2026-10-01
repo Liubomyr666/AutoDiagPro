@@ -9,8 +9,8 @@
     <Nullable>enable</Nullable>
     <ApplicationTitle>AutoDiag Pro</ApplicationTitle>
     <ApplicationId>com.autodiagpro.app</ApplicationId>
-    <ApplicationDisplayVersion>3.26.0</ApplicationDisplayVersion>
-    <ApplicationVersion>48</ApplicationVersion>
+    <ApplicationDisplayVersion>3.26.1</ApplicationDisplayVersion>
+    <ApplicationVersion>49</ApplicationVersion>
     <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 

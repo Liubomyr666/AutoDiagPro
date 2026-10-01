@@ -34,6 +34,7 @@ public sealed class VehiclesPage : ContentPage
                 {
                     BuildHeader(),
                     BuildVehicleHero(),
+                    BuildCatalogBanner(),
                     BuildStatusGrid(),
                     BuildQuickActions(),
                     Theme.H2("Мои автомобили"),
@@ -136,6 +137,51 @@ public sealed class VehiclesPage : ContentPage
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 18 },
             Content = grid
         };
+    }
+
+    private View BuildCatalogBanner()
+    {
+        var open = Theme.PrimaryButton("Открыть каталог");
+        open.FontSize = 12;
+        open.HeightRequest = 40;
+        open.Clicked += async (_, _) => await Shell.Current.GoToAsync("enginecatalog");
+
+        var grid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 12
+        };
+
+        grid.Add(new VerticalStackLayout
+        {
+            Spacing = 4,
+            Children =
+            {
+                Theme.Eyebrow("ENGINE LIBRARY"),
+                new Label
+                {
+                    Text = "Каталог двигателей",
+                    FontSize = 17,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Theme.Text,
+                    FontAutoScalingEnabled = false
+                },
+                Theme.MutedText("Фото модели • поколение • двигатели • быстрые проверки")
+            }
+        }, 0, 0);
+
+        open.VerticalOptions = LayoutOptions.Center;
+        grid.Add(open, 1, 0);
+
+        var card = Theme.CardView(grid, new Thickness(15), 18);
+        var tap = new TapGestureRecognizer();
+        tap.Tapped += async (_, _) => await Shell.Current.GoToAsync("enginecatalog");
+        card.GestureRecognizers.Add(tap);
+        return card;
     }
 
     private View BuildStatusGrid()

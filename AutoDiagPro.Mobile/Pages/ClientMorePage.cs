@@ -155,5 +155,3 @@ public sealed class ClientMorePage : ContentPage
         return card;
     }
 }
-
-[executed on device: Rubakha (3db26fc9-a901-43ec-82ae-bbafd3175a39)]

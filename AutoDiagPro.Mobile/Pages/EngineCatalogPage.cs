@@ -18,6 +18,7 @@ public sealed class EngineCatalogPage : ContentPage
 
     private readonly MobileState _state = AppServices.Get<MobileState>();
     private readonly HttpClient _photoHttp = CreatePhotoHttp();
+    private readonly SemaphoreSlim _photoGate = new(1, 1);
     private readonly Dictionary<string, string> _photoUrls = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly Entry _search = new()
@@ -369,56 +370,85 @@ public sealed class EngineCatalogPage : ContentPage
 
     private async Task LoadPhotoAsync(Image image, string photoQuery)
     {
+        await _photoGate.WaitAsync();
         try
         {
             if (!_photoUrls.TryGetValue(photoQuery, out var photoUrl))
             {
-                var api =
-                    "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=1" +
-                    "&gsrsearch=" + Uri.EscapeDataString(photoQuery) +
-                    "&prop=imageinfo&iiprop=url&iiurlwidth=900&format=json&origin=*";
+                photoUrl = await ResolvePhotoUrlAsync(photoQuery) ?? "";
 
-                var json = await _photoHttp.GetStringAsync(api);
-                using var document = JsonDocument.Parse(json);
-
-                photoUrl = "";
-                if (document.RootElement.TryGetProperty("query", out var query) &&
-                    query.TryGetProperty("pages", out var pages))
+                if (string.IsNullOrWhiteSpace(photoUrl))
                 {
-                    foreach (var page in pages.EnumerateObject())
-                    {
-                        if (!page.Value.TryGetProperty("imageinfo", out var infos) || infos.GetArrayLength() == 0)
-                            continue;
-
-                        var info = infos[0];
-                        if (info.TryGetProperty("thumburl", out var thumb))
-                            photoUrl = thumb.GetString() ?? "";
-                        else if (info.TryGetProperty("url", out var original))
-                            photoUrl = original.GetString() ?? "";
-
-                        if (!string.IsNullOrWhiteSpace(photoUrl))
-                            break;
-                    }
+                    var broad = string.Join(" ", photoQuery
+                        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .Take(3));
+                    photoUrl = await ResolvePhotoUrlAsync(broad) ?? "";
                 }
 
                 if (!string.IsNullOrWhiteSpace(photoUrl))
                     _photoUrls[photoQuery] = photoUrl;
             }
 
-            if (string.IsNullOrWhiteSpace(photoUrl))
-                return;
-
-            image.Source = new UriImageSource
+            if (!string.IsNullOrWhiteSpace(photoUrl))
             {
-                Uri = new Uri(photoUrl),
-                CachingEnabled = true,
-                CacheValidity = TimeSpan.FromDays(30)
-            };
+                image.Source = new UriImageSource
+                {
+                    Uri = new Uri(photoUrl),
+                    CachingEnabled = true,
+                    CacheValidity = TimeSpan.FromDays(30)
+                };
+            }
         }
         catch
         {
-            // Keep the premium dark placeholder if the photo network is unavailable.
+            // Keep the dark placeholder when the photo network is unavailable.
         }
+        finally
+        {
+            await Task.Delay(140);
+            _photoGate.Release();
+        }
+    }
+
+    private async Task<string?> ResolvePhotoUrlAsync(string search)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                var api =
+                    "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=1" +
+                    "&gsrsearch=" + Uri.EscapeDataString(search) +
+                    "&prop=imageinfo&iiprop=url&iiurlwidth=900&format=json&origin=*";
+
+                var json = await _photoHttp.GetStringAsync(api);
+                using var document = JsonDocument.Parse(json);
+
+                if (!document.RootElement.TryGetProperty("query", out var query) ||
+                    !query.TryGetProperty("pages", out var pages))
+                    return null;
+
+                foreach (var page in pages.EnumerateObject())
+                {
+                    if (!page.Value.TryGetProperty("imageinfo", out var infos) || infos.GetArrayLength() == 0)
+                        continue;
+
+                    var info = infos[0];
+                    if (info.TryGetProperty("thumburl", out var thumb))
+                        return thumb.GetString();
+                    if (info.TryGetProperty("url", out var original))
+                        return original.GetString();
+                }
+
+                return null;
+            }
+            catch (HttpRequestException) when (attempt < 2)
+            {
+                await Task.Delay(650 * (attempt + 1));
+            }
+        }
+
+        return null;
     }
 
     private async Task OpenItemAsync(CatalogItem item)

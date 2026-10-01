@@ -1,5 +1,6 @@
 using AutoDiagPro.Mobile.Services;
 using Microsoft.Maui.Controls.Shapes;
+using System.Text.Json;
 
 namespace AutoDiagPro.Mobile.Pages;
 
@@ -11,15 +12,17 @@ public sealed class EngineCatalogPage : ContentPage
         string Years,
         string Engines,
         string Badge,
-        string Image,
         string Fuels,
+        string PhotoQuery,
         string Hint);
 
     private readonly MobileState _state = AppServices.Get<MobileState>();
+    private readonly HttpClient _photoHttp = CreatePhotoHttp();
+    private readonly Dictionary<string, string> _photoUrls = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly Entry _search = new()
     {
-        Placeholder = "Поиск по марке, модели или двигателю…",
+        Placeholder = "Марка, модель, поколение или двигатель…",
         BackgroundColor = Theme.Surface,
         TextColor = Theme.Text,
         PlaceholderColor = Theme.Muted,
@@ -28,6 +31,7 @@ public sealed class EngineCatalogPage : ContentPage
     };
 
     private readonly HorizontalStackLayout _filterRow = new() { Spacing = 8 };
+    private readonly Label _status = Theme.MutedText("Загрузка каталога…");
 
     private readonly Grid _cards = new()
     {
@@ -44,17 +48,31 @@ public sealed class EngineCatalogPage : ContentPage
 
     private readonly CatalogItem[] _items =
     {
-        new("Volkswagen","Golf","2012–2020 • Mk7","1.2 TSI • 1.4 TSI • 1.6 TDI • 2.0 TDI • GTE","VW","catalog_vw_golf.svg","petrol|diesel|hybrid|popular","Типовые проблемы"),
-        new("BMW","3 Series","2012–2019 • F30","1.6 • 2.0 • 3.0 • B48 / B58 / N47","BMW","catalog_bmw_3.svg","petrol|diesel|popular","Перед покупкой"),
-        new("Mercedes-Benz","C-Class","2014–2021 • W205","1.6 • 2.0 • 2.1 • 3.0 • M274 / OM654","MB","catalog_mercedes_c.svg","petrol|diesel|popular","Что проверить"),
-        new("Renault","Megane","2012–2020 • III / IV","1.2 TCe • 1.5 dCi • 1.6 • 1.8 TCe","RN","catalog_renault_megane.svg","petrol|diesel","Типовые проблемы"),
-        new("Ford","Focus","2011–2018 • III","1.0 EcoBoost • 1.5 EcoBoost • 1.6 TDCi","FD","catalog_ford_focus.svg","petrol|diesel|popular","Что проверить"),
-        new("Peugeot","308","2013–2021 • T9","1.2 PureTech • 1.5 BlueHDi • 1.6 THP","PG","catalog_peugeot_308.svg","petrol|diesel","Перед покупкой")
+        new("Volkswagen","Golf","Mk7 • 2012–2020","1.2 TSI • 1.4 TSI • 1.6 TDI • 2.0 TDI • GTE","VW","petrol|diesel|hybrid|popular","Volkswagen Golf Mk7 hatchback","Типовые проблемы"),
+        new("BMW","3 Series","F30 • 2012–2019","1.6 • 2.0 • 3.0 • B48 • B58 • N47","BMW","petrol|diesel|hybrid|popular","BMW F30 3 Series sedan","Перед покупкой"),
+        new("Mercedes-Benz","C-Class","W205 • 2014–2021","1.6 • 2.0 • 2.1 • 3.0 • M274 • OM654","MB","petrol|diesel|hybrid|popular","Mercedes W205 C Class sedan","Что проверить"),
+        new("Audi","A4","B9 • 2015–2024","1.4 TFSI • 2.0 TFSI • 2.0 TDI","AU","petrol|diesel|hybrid|popular","Audi A4 B9 sedan","Типовые проблемы"),
+        new("Skoda","Octavia","A7 • 2013–2020","1.2 TSI • 1.4 TSI • 1.6 TDI • 2.0 TDI","SK","petrol|diesel|popular","Skoda Octavia A7 sedan","Перед покупкой"),
+        new("Volkswagen","Passat","B8 • 2014–2023","1.4 TSI • 1.5 TSI • 2.0 TSI • 1.6 TDI • 2.0 TDI","VW","petrol|diesel|hybrid|popular","Volkswagen Passat B8 sedan","Типовые проблемы"),
+        new("Toyota","Corolla","E210 • 2018–2025","1.2 Turbo • 1.8 Hybrid • 2.0 Hybrid","TY","petrol|hybrid|popular","Toyota Corolla E210 sedan","Что проверить"),
+        new("Ford","Focus","Mk3 • 2011–2018","1.0 EcoBoost • 1.5 EcoBoost • 1.6 TDCi • 2.0 TDCi","FD","petrol|diesel|popular","Ford Focus Mk3 hatchback","Типовые проблемы"),
+        new("Renault","Megane","IV • 2016–2023","1.2 TCe • 1.3 TCe • 1.5 dCi • 1.6 dCi","RN","petrol|diesel|popular","Renault Megane IV hatchback","Перед покупкой"),
+        new("Peugeot","308","T9 • 2013–2021","1.2 PureTech • 1.6 THP • 1.5 BlueHDi","PG","petrol|diesel","Peugeot 308 T9 hatchback","Типовые проблемы"),
+        new("Hyundai","Tucson","TL • 2015–2021","1.6 T-GDI • 2.0 • 1.7 CRDi • 2.0 CRDi","HY","petrol|diesel|popular","Hyundai Tucson TL SUV","Что проверить"),
+        new("Kia","Ceed","CD • 2018–2024","1.0 T-GDI • 1.4 T-GDI • 1.6 CRDi","KIA","petrol|diesel|popular","Kia Ceed CD hatchback","Типовые проблемы"),
+        new("Opel","Astra","K • 2015–2022","1.0 Turbo • 1.4 Turbo • 1.6 CDTI","OP","petrol|diesel","Opel Astra K hatchback","Перед покупкой"),
+        new("Nissan","Qashqai","J11 • 2013–2021","1.2 DIG-T • 1.3 DIG-T • 1.5 dCi • 1.6 dCi","NS","petrol|diesel|popular","Nissan Qashqai J11 SUV","Что проверить"),
+        new("Honda","Civic","X • 2016–2022","1.0 VTEC Turbo • 1.5 VTEC Turbo • 2.0","HN","petrol|popular","Honda Civic X hatchback","Типовые проблемы"),
+        new("Tesla","Model 3","2017–2024","RWD • Long Range • Performance","TS","electric|popular","Tesla Model 3 sedan","Перед покупкой"),
+        new("BMW","5 Series","G30 • 2017–2023","2.0 • 3.0 • B48 • B58 • B47 • B57","BMW","petrol|diesel|hybrid|popular","BMW G30 5 Series sedan","Типовые проблемы"),
+        new("Mercedes-Benz","E-Class","W213 • 2016–2023","2.0 • 3.0 • OM654 • OM656","MB","petrol|diesel|hybrid|popular","Mercedes W213 E Class sedan","Перед покупкой"),
+        new("Audi","A6","C8 • 2018–2025","2.0 TFSI • 3.0 TFSI • 2.0 TDI • 3.0 TDI","AU","petrol|diesel|hybrid|popular","Audi A6 C8 sedan","Что проверить"),
+        new("Skoda","Superb","III • 2015–2024","1.4 TSI • 1.5 TSI • 2.0 TSI • 1.6 TDI • 2.0 TDI","SK","petrol|diesel|hybrid","Skoda Superb III sedan","Перед покупкой")
     };
 
     public EngineCatalogPage()
     {
-        Title = "Каталог двигателей";
+        Title = "Автомобили и двигатели";
         BackgroundColor = Theme.Page;
         Shell.SetNavBarIsVisible(this, true);
 
@@ -77,6 +95,7 @@ public sealed class EngineCatalogPage : ContentPage
                         HorizontalScrollBarVisibility = ScrollBarVisibility.Never,
                         Content = _filterRow
                     },
+                    _status,
                     _cards,
                     Theme.MutedText(
                         "Каталог — отдельный справочный экран. Диагностика, OBD, DTC, ECU, Live Data, кодирование и сервисные операции работают как раньше.")
@@ -85,6 +104,13 @@ public sealed class EngineCatalogPage : ContentPage
         };
 
         Render();
+    }
+
+    private static HttpClient CreatePhotoHttp()
+    {
+        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("AutoDiagPro-iOS/3.27");
+        return client;
     }
 
     private View Header()
@@ -104,13 +130,13 @@ public sealed class EngineCatalogPage : ContentPage
             Spacing = 5,
             Children =
             {
-                Theme.Eyebrow("AUTODIAG ENGINE LIBRARY"),
-                Theme.H1("Каталог двигателей"),
-                Theme.MutedText("Модель → поколение → мотор → быстрый переход к проверке.")
+                Theme.Eyebrow("AUTODIAG CATALOG"),
+                Theme.H1("Автомобили и двигатели"),
+                Theme.MutedText("Популярные модели, поколения и моторы. Карточки используют реальные фото автомобиля.")
             }
         }, 0, 0);
 
-        var counter = Theme.Pill("310+ двигателей", Theme.Accent);
+        var counter = Theme.Pill("20 моделей", Theme.Accent);
         counter.VerticalOptions = LayoutOptions.Start;
         grid.Add(counter, 1, 0);
         return grid;
@@ -152,6 +178,7 @@ public sealed class EngineCatalogPage : ContentPage
             ("petrol", "Бензин"),
             ("diesel", "Дизель"),
             ("hybrid", "Гибрид"),
+            ("electric", "Электро"),
             ("popular", "Популярные")
         })
         {
@@ -191,8 +218,7 @@ public sealed class EngineCatalogPage : ContentPage
         _cards.Clear();
 
         var query = (_search.Text ?? "").Trim();
-        var words = query
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         var data = _items.Where(x =>
         {
@@ -206,6 +232,8 @@ public sealed class EngineCatalogPage : ContentPage
             return filterOk && searchOk;
         }).ToArray();
 
+        _status.Text = $"Показано {data.Length} из {_items.Length} популярных моделей • фото: Wikimedia Commons";
+
         if (data.Length == 0)
         {
             var empty = Theme.CardView(
@@ -213,7 +241,6 @@ public sealed class EngineCatalogPage : ContentPage
                 new Thickness(16),
                 16);
             _cards.Add(empty, 0, 0);
-            _cards.SetColumnSpan(empty, 2);
             return;
         }
 
@@ -289,6 +316,15 @@ public sealed class EngineCatalogPage : ContentPage
             FontAutoScalingEnabled = false
         }, 2, 0);
 
+        var photo = new Image
+        {
+            Aspect = Aspect.AspectFill,
+            BackgroundColor = Theme.Surface,
+            Opacity = 0.96
+        };
+
+        _ = LoadPhotoAsync(photo, item.PhotoQuery);
+
         var card = Theme.CardView(new VerticalStackLayout
         {
             Spacing = 8,
@@ -296,11 +332,11 @@ public sealed class EngineCatalogPage : ContentPage
             {
                 new Border
                 {
-                    HeightRequest = 112,
+                    HeightRequest = 122,
                     StrokeThickness = 0,
                     BackgroundColor = Theme.Surface,
                     StrokeShape = new RoundRectangle { CornerRadius = 14 },
-                    Content = new Image { Source = item.Image, Aspect = Aspect.AspectFill }
+                    Content = photo
                 },
                 title,
                 new Label
@@ -329,6 +365,60 @@ public sealed class EngineCatalogPage : ContentPage
         tap.Tapped += async (_, _) => await OpenItemAsync(item);
         card.GestureRecognizers.Add(tap);
         return card;
+    }
+
+    private async Task LoadPhotoAsync(Image image, string photoQuery)
+    {
+        try
+        {
+            if (!_photoUrls.TryGetValue(photoQuery, out var photoUrl))
+            {
+                var api =
+                    "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=1" +
+                    "&gsrsearch=" + Uri.EscapeDataString(photoQuery) +
+                    "&prop=imageinfo&iiprop=url&iiurlwidth=900&format=json&origin=*";
+
+                var json = await _photoHttp.GetStringAsync(api);
+                using var document = JsonDocument.Parse(json);
+
+                photoUrl = "";
+                if (document.RootElement.TryGetProperty("query", out var query) &&
+                    query.TryGetProperty("pages", out var pages))
+                {
+                    foreach (var page in pages.EnumerateObject())
+                    {
+                        if (!page.Value.TryGetProperty("imageinfo", out var infos) || infos.GetArrayLength() == 0)
+                            continue;
+
+                        var info = infos[0];
+                        if (info.TryGetProperty("thumburl", out var thumb))
+                            photoUrl = thumb.GetString() ?? "";
+                        else if (info.TryGetProperty("url", out var original))
+                            photoUrl = original.GetString() ?? "";
+
+                        if (!string.IsNullOrWhiteSpace(photoUrl))
+                            break;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(photoUrl))
+                    _photoUrls[photoQuery] = photoUrl;
+            }
+
+            if (string.IsNullOrWhiteSpace(photoUrl))
+                return;
+
+            image.Source = new UriImageSource
+            {
+                Uri = new Uri(photoUrl),
+                CachingEnabled = true,
+                CacheValidity = TimeSpan.FromDays(30)
+            };
+        }
+        catch
+        {
+            // Keep the premium dark placeholder if the photo network is unavailable.
+        }
     }
 
     private async Task OpenItemAsync(CatalogItem item)

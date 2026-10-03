@@ -131,9 +131,11 @@ public sealed class RepairCaseMobile
     public string Complaint { get; set; } = "";
     public string DtcCodes { get; set; } = "";
     public string BeforeScan { get; set; } = "";
+    public RepairScanSnapshotMobile? BeforeSnapshot { get; set; }
     public string ConfirmedCause { get; set; } = "";
     public string RepairDone { get; set; } = "";
     public string AfterScan { get; set; } = "";
+    public RepairScanSnapshotMobile? AfterSnapshot { get; set; }
     public string BeforePhotoPath { get; set; } = "";
     public string AfterPhotoPath { get; set; } = "";
     public string Notes { get; set; } = "";
@@ -250,4 +252,3 @@ public sealed class MobileEmployeeRecord
     public bool Active { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
 }
-

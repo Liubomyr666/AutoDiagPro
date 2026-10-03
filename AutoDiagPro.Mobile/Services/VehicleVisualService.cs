@@ -46,17 +46,45 @@ public sealed class VehicleVisualService
             }
         }
 
-        var photoUrl = Preferences.Default.Get(key + "_photo", "");
+        var photoKey = key + "_photo_v2";
+        var photoUrl = Preferences.Default.Get(photoKey, "");
         if (string.IsNullOrWhiteSpace(photoUrl))
         {
-            var modelQuery = BuildPhotoQuery(vehicle, color);
-            photoUrl = await ResolvePhotoUrlAsync(modelQuery, ct) ?? "";
+            var normalizedColor = NormalizeColorForSearch(color);
 
-            if (string.IsNullOrWhiteSpace(photoUrl) && !string.IsNullOrWhiteSpace(color))
-                photoUrl = await ResolvePhotoUrlAsync(BuildPhotoQuery(vehicle, ""), ct) ?? "";
+            if (!string.IsNullOrWhiteSpace(normalizedColor))
+            {
+                photoUrl = await ResolvePhotoUrlAsync(
+                    BuildPhotoQuery(vehicle, normalizedColor, includeYear: true),
+                    normalizedColor,
+                    ct) ?? "";
+
+                if (string.IsNullOrWhiteSpace(photoUrl))
+                {
+                    photoUrl = await ResolvePhotoUrlAsync(
+                        BuildPhotoQuery(vehicle, normalizedColor, includeYear: false),
+                        normalizedColor,
+                        ct) ?? "";
+                }
+            }
+            else
+            {
+                photoUrl = await ResolvePhotoUrlAsync(
+                    BuildPhotoQuery(vehicle, "", includeYear: true),
+                    null,
+                    ct) ?? "";
+
+                if (string.IsNullOrWhiteSpace(photoUrl))
+                {
+                    photoUrl = await ResolvePhotoUrlAsync(
+                        BuildPhotoQuery(vehicle, "", includeYear: false),
+                        null,
+                        ct) ?? "";
+                }
+            }
 
             if (!string.IsNullOrWhiteSpace(photoUrl))
-                Preferences.Default.Set(key + "_photo", photoUrl);
+                Preferences.Default.Set(photoKey, photoUrl);
         }
 
         return new VehicleVisualInfo(photoUrl, color, paint, source);
@@ -68,8 +96,8 @@ public sealed class VehicleVisualService
         Preferences.Default.Set(key + "_color", (colorName ?? "").Trim());
         Preferences.Default.Set(key + "_paint", (paintCode ?? "").Trim());
         Preferences.Default.Set(key + "_source", source);
-        // Colour can affect the photo query, so re-resolve on the next refresh.
         Preferences.Default.Remove(key + "_photo");
+        Preferences.Default.Remove(key + "_photo_v2");
     }
 
     public static Color Swatch(string? colorName)
@@ -138,20 +166,19 @@ public sealed class VehicleVisualService
         return "vehicle_visual_" + safe;
     }
 
-    private static string BuildPhotoQuery(ServerVehicleRecord vehicle, string color)
+    private static string BuildPhotoQuery(ServerVehicleRecord vehicle, string color, bool includeYear)
     {
         var parts = new[]
         {
             vehicle.Make ?? "",
             vehicle.Model ?? "",
-            vehicle.Year?.ToString() ?? "",
-            color,
-            "car"
+            includeYear ? vehicle.Year?.ToString() ?? "" : "",
+            color
         };
         return string.Join(" ", parts.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
     }
 
-    private static async Task<string?> ResolvePhotoUrlAsync(string search, CancellationToken ct)
+    private static async Task<string?> ResolvePhotoUrlAsync(string search, string? desiredColor, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(search))
             return null;
@@ -159,9 +186,9 @@ public sealed class VehicleVisualService
         try
         {
             var api =
-                "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=4" +
+                "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=16" +
                 "&gsrsearch=" + Uri.EscapeDataString(search) +
-                "&prop=imageinfo&iiprop=url&iiurlwidth=1200&format=json&origin=*";
+                "&prop=imageinfo&iiprop=url|size|mime|extmetadata&iiurlwidth=1400&format=json&origin=*";
 
             using var response = await Http.GetAsync(api, ct);
             response.EnsureSuccessStatusCode();
@@ -172,30 +199,113 @@ public sealed class VehicleVisualService
                 !query.TryGetProperty("pages", out var pages))
                 return null;
 
+            var banned = new[]
+            {
+                "rally", "race", "racing", "dtm", "motorsport", "competition", "track",
+                "police", "taxi", "ambulance", "fire engine", "safety car",
+                "livery", "art car", "show car", "concept", "prototype",
+                "render", "drawing", "illustration", "vector", "logo", "poster",
+                "toy", "model car", "scale model", "wreck", "crash", "damaged",
+                "bosch", "sponsor", "replica"
+            };
+
+            string? bestUrl = null;
+            var bestScore = int.MinValue;
+
             foreach (var page in pages.EnumerateObject())
             {
+                var title = page.Value.TryGetProperty("title", out var titleNode)
+                    ? titleNode.GetString() ?? ""
+                    : "";
+                var lowerTitle = title.ToLowerInvariant();
+                if (banned.Any(lowerTitle.Contains))
+                    continue;
+
                 if (!page.Value.TryGetProperty("imageinfo", out var infos) || infos.GetArrayLength() == 0)
                     continue;
 
                 var info = infos[0];
-                if (info.TryGetProperty("thumburl", out var thumb) && Uri.TryCreate(thumb.GetString(), UriKind.Absolute, out _))
-                    return thumb.GetString();
-                if (info.TryGetProperty("url", out var original) && Uri.TryCreate(original.GetString(), UriKind.Absolute, out _))
-                    return original.GetString();
+                var evidence = (lowerTitle + " " + info.GetRawText()).ToLowerInvariant();
+                if (!string.IsNullOrWhiteSpace(desiredColor) &&
+                    !evidence.Contains(desiredColor.ToLowerInvariant()))
+                    continue;
+
+                var width = info.TryGetProperty("width", out var w) && w.TryGetInt32(out var wi) ? wi : 0;
+                var height = info.TryGetProperty("height", out var h) && h.TryGetInt32(out var hi) ? hi : 0;
+
+                if (width > 0 && height > 0)
+                {
+                    var ratio = (double)width / height;
+                    if (width < 700 || ratio < 1.10 || ratio > 2.80)
+                        continue;
+                }
+
+                var url = info.TryGetProperty("thumburl", out var thumb) ? thumb.GetString() :
+                          info.TryGetProperty("url", out var original) ? original.GetString() : null;
+                if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out _))
+                    continue;
+
+                var score = 0;
+                if (width > 0 && height > 0)
+                {
+                    var ratio = (double)width / height;
+                    if (ratio >= 1.25 && ratio <= 2.20) score += 4;
+                }
+
+                if (lowerTitle.Contains("front") || lowerTitle.Contains("rear") ||
+                    lowerTitle.Contains("side") || lowerTitle.Contains("sedan") ||
+                    lowerTitle.Contains("estate") || lowerTitle.Contains("wagon") ||
+                    lowerTitle.Contains("hatchback") || lowerTitle.Contains("suv"))
+                    score += 2;
+
+                foreach (var token in search.ToLowerInvariant()
+                             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                             .Where(x => x.Length >= 3 && x is not "road" and not "car"))
+                {
+                    if (lowerTitle.Contains(token)) score += 2;
+                }
+
+                if (!string.IsNullOrWhiteSpace(desiredColor) &&
+                    lowerTitle.Contains(desiredColor.ToLowerInvariant()))
+                    score += 7;
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestUrl = url;
+                }
             }
+
+            return bestUrl;
         }
         catch
         {
-            // The app keeps its bundled fallback image when network photo lookup is unavailable.
+            return null;
         }
+    }
 
-        return null;
+    private static string NormalizeColorForSearch(string? name)
+    {
+        var value = (name ?? "").Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(value) || value.StartsWith("#")) return "";
+        if (value.Contains("black") || value.Contains("schwarz") || value.Contains("чёр") || value.Contains("черн")) return "black";
+        if (value.Contains("white") || value.Contains("weiß") || value.Contains("weiss") || value.Contains("бел")) return "white";
+        if (value.Contains("silver") || value.Contains("silber") || value.Contains("сереб")) return "silver";
+        if (value.Contains("gray") || value.Contains("grey") || value.Contains("grau") || value.Contains("сер") || value.Contains("графит")) return "grey";
+        if (value.Contains("red") || value.Contains("rot") || value.Contains("крас")) return "red";
+        if (value.Contains("blue") || value.Contains("blau") || value.Contains("син") || value.Contains("голуб")) return "blue";
+        if (value.Contains("green") || value.Contains("grün") || value.Contains("gruen") || value.Contains("зел")) return "green";
+        if (value.Contains("yellow") || value.Contains("gelb") || value.Contains("желт")) return "yellow";
+        if (value.Contains("orange") || value.Contains("оранж")) return "orange";
+        if (value.Contains("brown") || value.Contains("braun") || value.Contains("корич")) return "brown";
+        if (value.Contains("beige") || value.Contains("беж")) return "beige";
+        return value;
     }
 
     private static HttpClient CreateHttp()
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("AutoDiagPro-iOS/3.28");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("AutoDiagPro-iOS/3.28.2");
         return client;
     }
 }

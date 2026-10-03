@@ -1,4 +1,5 @@
-﻿using AutoDiagPro.Mobile.Services;
+﻿using AutoDiagPro.Mobile.Models;
+using AutoDiagPro.Mobile.Services;
 
 namespace AutoDiagPro.Mobile.Pages;
 
@@ -6,6 +7,12 @@ public sealed class DashboardPage : ContentPage
 {
     private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
+    private readonly VehicleVisualService _visual;
+
+    private readonly Image _heroPhoto = new() { Source = "hero_car.jpg", Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
+    private readonly Label _heroTitle = new() { Text = "Автомобиль не выбран", FontSize = 21, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text, FontAutoScalingEnabled = false };
+    private readonly Label _heroColor = Theme.MutedText("Цвет • не определён");
+    private readonly BoxView _heroColorSwatch = new() { WidthRequest = 14, HeightRequest = 14, Color = Theme.Line };
 
     private readonly Label _vehicle = ValueLabel();
     private readonly Label _dtc = ValueLabel();
@@ -19,6 +26,7 @@ public sealed class DashboardPage : ContentPage
 
     public DashboardPage()
     {
+        _visual = new VehicleVisualService(_api);
         Title = "Главная";
         BackgroundColor = Theme.Page;
         Content = new ScrollView
@@ -78,32 +86,45 @@ public sealed class DashboardPage : ContentPage
         var car = Theme.SecondaryButton("Автомобиль");
         car.Clicked += async (_, _) => await Shell.Current.GoToAsync("//vehicles");
 
-        var content = new VerticalStackLayout
+        var colorRow = new HorizontalStackLayout { Spacing = 7 };
+        colorRow.Add(new Border
         {
-            Padding = new Thickness(18),
-            Spacing = 10,
-            VerticalOptions = LayoutOptions.End,
-            Children =
-            {
-                Theme.Pill("VEHICLE SESSION"),
-                new Label { Text = "Диагностика, ремонт и сервис\nв одном приложении", FontSize = 24, FontAttributes = FontAttributes.Bold, TextColor = Colors.White },
-                new Label { Text = "VIN • DTC • Live Data • AI • детали • СТО", FontSize = 12, TextColor = Color.FromArgb("#D1D7DB") },
-                new HorizontalStackLayout { Spacing = 8, Children = { scan, car } }
-            }
-        };
-
-        var grid = new Grid { HeightRequest = 260 };
-        grid.Add(new Image { Source = "hero_car.jpg", Aspect = Aspect.AspectFill });
-        grid.Add(new BoxView { Color = Color.FromArgb("#070B10"), Opacity = 0.60 });
-        grid.Add(content);
-
-        return new Border
-        {
+            WidthRequest = 20,
+            HeightRequest = 20,
+            Padding = 3,
+            BackgroundColor = Theme.Surface,
             Stroke = Theme.Line,
             StrokeThickness = 1,
-            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 18 },
-            Content = grid
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },
+            Content = _heroColorSwatch
+        });
+        _heroColor.VerticalTextAlignment = TextAlignment.Center;
+        colorRow.Add(_heroColor);
+
+        var photoFrame = new Border
+        {
+            HeightRequest = 225,
+            BackgroundColor = Theme.Surface,
+            Stroke = Theme.Line,
+            StrokeThickness = 1,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 16 },
+            Padding = new Thickness(8),
+            Content = _heroPhoto
         };
+
+        return Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 10,
+            Children =
+            {
+                photoFrame,
+                Theme.Pill("ТЕКУЩИЙ АВТОМОБИЛЬ"),
+                _heroTitle,
+                colorRow,
+                Theme.MutedText("VIN • DTC • Live Data • AI • детали • СТО"),
+                new HorizontalStackLayout { Spacing = 8, Children = { scan, car } }
+            }
+        }, new Thickness(10), 18);
     }
 
     private View BuildKpis()
@@ -236,6 +257,7 @@ public sealed class DashboardPage : ContentPage
             var selected = _state.SelectedVehicle;
             _vehicle.Text = selected?.DisplayName ?? "Не выбрано";
             _vehicle.FontSize = selected is null ? 17 : 14;
+            await RefreshHeroVehicleAsync(selected);
 
             var relevantScans = selected is null
                 ? scans
@@ -266,6 +288,34 @@ public sealed class DashboardPage : ContentPage
             _sync.Text = "Синхронизация: " + ex.Message;
             _sync.TextColor = Theme.Red;
         }
+    }
+
+    private async Task RefreshHeroVehicleAsync(ServerVehicleRecord? vehicle)
+    {
+        if (vehicle is null)
+        {
+            _heroTitle.Text = "Автомобиль не выбран";
+            _heroColor.Text = "Цвет • не определён";
+            _heroColorSwatch.Color = Theme.Line;
+            _heroPhoto.Source = "hero_car.jpg";
+            return;
+        }
+
+        _heroTitle.Text = vehicle.DisplayName;
+        var visual = await _visual.ResolveAsync(vehicle);
+        _heroColor.Text = string.IsNullOrWhiteSpace(visual.ColorName)
+            ? "Цвет • не определён"
+            : "Цвет • " + visual.ColorName +
+              (string.IsNullOrWhiteSpace(visual.PaintCode) ? "" : " • код " + visual.PaintCode);
+        _heroColorSwatch.Color = VehicleVisualService.Swatch(visual.ColorName);
+        _heroPhoto.Source = string.IsNullOrWhiteSpace(visual.PhotoUrl)
+            ? null
+            : new UriImageSource
+            {
+                Uri = new Uri(visual.PhotoUrl),
+                CachingEnabled = true,
+                CacheValidity = TimeSpan.FromDays(30)
+            };
     }
 
     private static Label ValueLabel() => new()

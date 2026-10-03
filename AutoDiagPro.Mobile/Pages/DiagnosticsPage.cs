@@ -30,7 +30,7 @@ public sealed class DiagnosticsPage : ContentPage
         FontAutoScalingEnabled = false
     };
     private readonly Label _vehicle = Theme.MutedText("VIN • —");
-    private readonly Image _vehiclePhoto = new() { Source = "hero_car.jpg", Aspect = Aspect.AspectFill };
+    private readonly Image _vehiclePhoto = new() { Source = "hero_car.jpg", Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
     private readonly Label _vehicleColor = Theme.MutedText("Цвет • не определён");
     private readonly BoxView _vehicleColorSwatch = new() { WidthRequest = 14, HeightRequest = 14, Color = Theme.Line };
     private readonly Label _protocol = Theme.MutedText("Протокол • —");
@@ -200,7 +200,9 @@ public sealed class DiagnosticsPage : ContentPage
     {
         var photo = new Border
         {
-            HeightRequest = 150,
+            HeightRequest = 210,
+            BackgroundColor = Theme.Surface,
+            Padding = new Thickness(8),
             Stroke = Theme.Line,
             StrokeThickness = 1,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 14 },

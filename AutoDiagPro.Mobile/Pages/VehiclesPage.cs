@@ -10,7 +10,7 @@ public sealed class VehiclesPage : ContentPage
     private readonly VehicleVisualService _visual;
 
     private readonly VerticalStackLayout _vehicleCards = new() { Spacing = 10 };
-    private readonly Image _selectedPhoto = new() { Source = "hero_car.jpg", Aspect = Aspect.AspectFill };
+    private readonly Image _selectedPhoto = new() { Source = "hero_car.jpg", Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
     private readonly Label _selectedColor = Theme.MutedText("Цвет • не определён");
     private readonly BoxView _selectedColorSwatch = new() { WidthRequest = 14, HeightRequest = 14, Color = Theme.Line };
     private readonly Label _status = Theme.MutedText("Загрузка...");
@@ -138,14 +138,21 @@ public sealed class VehiclesPage : ContentPage
         _selectedColor.VerticalTextAlignment = TextAlignment.Center;
         colorRow.Add(_selectedColor);
 
-        var grid = new Grid { HeightRequest = 292 };
-        grid.Add(_selectedPhoto);
-        grid.Add(new BoxView { Color = Theme.Page, Opacity = 0.53 });
-        grid.Add(new VerticalStackLayout
+        var photoFrame = new Border
         {
-            Padding = new Thickness(16),
+            HeightRequest = 230,
+            BackgroundColor = Theme.Surface,
+            Stroke = Theme.Line,
+            StrokeThickness = 1,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 16 },
+            Padding = new Thickness(8),
+            Content = _selectedPhoto
+        };
+
+        var details = new VerticalStackLayout
+        {
+            Padding = new Thickness(2, 4, 2, 0),
             Spacing = 7,
-            VerticalOptions = LayoutOptions.End,
             Children =
             {
                 Theme.Pill("ПОДКЛЮЧЕННЫЙ АВТОМОБИЛЬ"),
@@ -155,18 +162,14 @@ public sealed class VehiclesPage : ContentPage
                 colorRow,
                 buttons
             }
-        });
-
-        return new Border
-        {
-            Stroke = Theme.Line,
-            StrokeThickness = 1,
-            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 18 },
-            Content = grid
         };
+
+        return Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 10,
+            Children = { photoFrame, details }
+        }, new Thickness(10), 18);
     }
-
-
 
     private View BuildStatusGrid()
     {

@@ -19,7 +19,7 @@ public static class SmartDiagnosticAdvisor
     {
         var steps = new List<string>();
         var voltage = ParseNumber(voltageText);
-        var coolant = FindNumber(live, "coolant", "ОЖ", "температура");
+        var coolant = FindNumber(live, "coolant", "ОЖ");
         var milOn = readiness.Any(x =>
             x.Key.Contains("MIL", StringComparison.OrdinalIgnoreCase) &&
             (x.Value.Contains("вкл", StringComparison.OrdinalIgnoreCase) ||

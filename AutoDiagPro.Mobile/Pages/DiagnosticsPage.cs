@@ -54,6 +54,16 @@ public sealed class DiagnosticsPage : ContentPage
     private readonly Label _protocol = Theme.MutedText("Протокол • —");
     private readonly Label _voltage = Theme.MutedText("Напряжение • —");
     private readonly VerticalStackLayout _results = new() { Spacing = 8 };
+    private readonly ProgressBar _smartProgress = new()
+    {
+        Progress = 0,
+        ProgressColor = Theme.Accent,
+        BackgroundColor = Theme.Line,
+        HeightRequest = 4
+    };
+    private readonly Label _smartStage = Theme.MutedText("Готов к Smart Diagnostics.");
+    private readonly Label _smartStatus = Theme.Body("После полного скана здесь появится приоритет и общий вывод.");
+    private readonly Label _smartNextSteps = Theme.MutedText("VIN → DTC → Freeze Frame → Live Data → следующие проверки.");
 
     public DiagnosticsPage()
     {
@@ -87,6 +97,7 @@ public sealed class DiagnosticsPage : ContentPage
                     BuildConnectionCard(),
                     BuildVehicleCard(),
                     BuildActionsCard(),
+                    BuildSmartDiagnosticsCard(),
                     Theme.CardView(_results)
                 }
             }
@@ -380,6 +391,31 @@ public sealed class DiagnosticsPage : ContentPage
         actions.Children.Add(disconnect);
         return Theme.CardView(actions);
     }
+
+    private View BuildSmartDiagnosticsCard()
+    {
+        return Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 9,
+            Children =
+            {
+                Theme.Eyebrow("SMART DIAGNOSTICS"),
+                _smartProgress,
+                _smartStage,
+                _smartStatus,
+                Theme.Eyebrow("ЧТО ПРОВЕРИТЬ ДАЛЬШЕ"),
+                _smartNextSteps
+            }
+        });
+    }
+
+    private void SmartStep(int step, string title)
+    {
+        _smartProgress.Progress = Math.Clamp(step / 8d, 0, 1);
+        _smartStage.Text = $"Этап {step}/8 • {title}";
+        _smartStage.TextColor = Theme.Accent;
+    }
+
     private async void ConnectClicked(object? sender, EventArgs e)
     {
         try
@@ -647,24 +683,42 @@ public sealed class DiagnosticsPage : ContentPage
 
         try
         {
-            ShowResult("Идёт диагностика...");
-            var vin = await _obd.VinAsync();
+            ShowResult("Идёт Smart Diagnostics...");
+            _smartProgress.Progress = 0;
+            _smartStatus.Text = "Собираем данные автомобиля...";
+            _smartNextSteps.Text = "VIN → DTC → Freeze Frame → Live Data → анализ.";
+
+            SmartStep(1, "Связь, протокол и напряжение");
             var protocol = await _obd.ProtocolAsync();
             var voltage = await _obd.VoltageAsync();
+
+            SmartStep(2, "VIN и идентификация автомобиля");
+            var vin = await _obd.VinAsync();
+
+            SmartStep(3, "Readiness / MIL");
+            var readiness = await _obd.ReadinessAsync();
+
+            SmartStep(4, "Stored / pending / permanent DTC");
             var confirmedDtc = await _obd.DtcAsync();
             var pendingDtc = await _obd.PendingDtcAsync();
             var permanentDtc = await _obd.PermanentDtcAsync();
             var allDtc = confirmedDtc
                 .Concat(pendingDtc)
                 .Concat(permanentDtc)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            var readiness = await _obd.ReadinessAsync();
-            var ecu = await _obd.EcuInfoAsync();
+
+            SmartStep(5, "Live Data");
             var live = await _obd.LiveSnapshotAsync();
+
+            SmartStep(6, "Freeze Frame / Mode 06 / IUPR");
             var freezeFrame = await _obd.FreezeFrameAsync();
             var mode06 = await _obd.Mode06MonitorResultsAsync();
             var iupr = await _obd.InUsePerformanceTrackingAsync();
+
+            SmartStep(7, "ECU / Calibration");
+            var ecu = await _obd.EcuInfoAsync();
 
             var identity = VehicleIdentityService.Decode(vin);
             var decoded = await TryDecodeVinAsync(identity.Vin);
@@ -689,9 +743,27 @@ public sealed class DiagnosticsPage : ContentPage
                         : string.Join("\n", mode06.Take(32))) +
                 $"\n\nIUPR / MODE 09 PID 08\n{iupr}";
 
+            SmartStep(8, "Анализ приоритетов и следующих проверок");
             var health = DiagnosticHealthService.Analyze(voltage, allDtc, readiness, live);
+            var smart = SmartDiagnosticAdvisor.Analyze(
+                voltage, allDtc, readiness, live, freezeFrame, health);
+
+            _smartStatus.Text = $"Приоритет: {smart.Priority}\n{smart.Status}";
+            _smartStatus.TextColor = smart.Priority == "ВЫСОКИЙ"
+                ? Theme.Red
+                : smart.Priority == "СРЕДНИЙ"
+                    ? Theme.TextSoft
+                    : Theme.Green;
+            _smartNextSteps.Text = "• " + string.Join("\n• ", smart.NextSteps);
+            _smartStage.Text = $"Завершено • {allDtc.Count} DTC • Health {health.Score}/100";
+            _smartStage.TextColor = Theme.Green;
+            _smartProgress.Progress = 1;
+
             summary += "\n\nHEALTH SCORE\n" + health.Summary +
-                       "\n• " + string.Join("\n• ", health.Findings);
+                       "\n• " + string.Join("\n• ", health.Findings) +
+                       "\n\nSMART DIAGNOSTICS\n" +
+                       $"Приоритет: {smart.Priority}\n{smart.Status}\n" +
+                       "Следующие проверки:\n• " + string.Join("\n• ", smart.NextSteps);
 
             _state.LastDiagnosticSummary = summary;
             _state.LastDtcCodes = allDtc;
@@ -734,6 +806,11 @@ public sealed class DiagnosticsPage : ContentPage
         }
         catch (Exception ex)
         {
+            _smartStage.Text = "Smart Diagnostics прервана.";
+            _smartStage.TextColor = Theme.Red;
+            _smartStatus.Text = "Диагностика не завершена.";
+            _smartStatus.TextColor = Theme.Red;
+            _smartNextSteps.Text = "• Проверить адаптер и питание автомобиля.\n• Повторить полный скан.";
             ShowResult("Диагностика: " + ex.Message, true);
         }
     }

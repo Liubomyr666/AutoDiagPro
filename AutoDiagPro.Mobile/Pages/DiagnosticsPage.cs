@@ -31,6 +31,24 @@ public sealed class DiagnosticsPage : ContentPage
     };
     private readonly Label _vehicle = Theme.MutedText("VIN • —");
     private readonly Image _vehiclePhoto = new() { Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
+    private Grid? _vehiclePhotoPlaceholder;
+    private readonly Label _vehiclePhotoPlaceholderTitle = new()
+    {
+        Text = "Укажите цвет кузова",
+        TextColor = Theme.Text,
+        FontSize = 15,
+        FontAttributes = FontAttributes.Bold,
+        HorizontalTextAlignment = TextAlignment.Center,
+        FontAutoScalingEnabled = false
+    };
+    private readonly Label _vehiclePhotoPlaceholderText = new()
+    {
+        Text = "После выбора цвета загрузится реальное фото автомобиля.",
+        TextColor = Theme.Muted,
+        FontSize = 11,
+        HorizontalTextAlignment = TextAlignment.Center,
+        FontAutoScalingEnabled = false
+    };
     private readonly Label _vehicleColor = Theme.MutedText("Цвет • не определён");
     private readonly BoxView _vehicleColorSwatch = new() { WidthRequest = 14, HeightRequest = 14, Color = Theme.Line };
     private readonly Label _protocol = Theme.MutedText("Протокол • —");
@@ -198,6 +216,38 @@ public sealed class DiagnosticsPage : ContentPage
 
     private View BuildVehicleCard()
     {
+        _vehiclePhotoPlaceholder = new Grid
+        {
+            Padding = new Thickness(24),
+            HorizontalOptions = LayoutOptions.Fill,
+            VerticalOptions = LayoutOptions.Fill,
+            IsVisible = true
+        };
+        _vehiclePhotoPlaceholder.Add(new VerticalStackLayout
+        {
+            Spacing = 6,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            MaximumWidthRequest = 310,
+            Children =
+            {
+                new Image
+                {
+                    Source = "vehicle_placeholder.svg",
+                    WidthRequest = 76,
+                    HeightRequest = 52,
+                    Aspect = Aspect.AspectFit,
+                    HorizontalOptions = LayoutOptions.Center
+                },
+                _vehiclePhotoPlaceholderTitle,
+                _vehiclePhotoPlaceholderText
+            }
+        });
+
+        var photoLayer = new Grid();
+        photoLayer.Add(_vehiclePhoto);
+        photoLayer.Add(_vehiclePhotoPlaceholder);
+
         var photo = new Border
         {
             HeightRequest = 210,
@@ -206,7 +256,7 @@ public sealed class DiagnosticsPage : ContentPage
             Stroke = Theme.Line,
             StrokeThickness = 1,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 14 },
-            Content = _vehiclePhoto
+            Content = photoLayer
         };
 
         var colorRow = new HorizontalStackLayout { Spacing = 7 };
@@ -432,15 +482,30 @@ public sealed class DiagnosticsPage : ContentPage
 
     private async Task RefreshVehicleVisualAsync(ServerVehicleRecord? vehicle)
     {
+        _vehiclePhoto.Source = null;
+
         if (vehicle is null)
         {
-            _vehiclePhoto.Source = null;
             _vehicleColor.Text = "Цвет • не определён";
             _vehicleColorSwatch.Color = Theme.Line;
+            SetVehiclePhotoPlaceholder(
+                "Автомобиль не выбран",
+                "Подключите OBD или выберите автомобиль, чтобы загрузить его фото.");
             return;
         }
 
-        _vehicleName.Text = vehicle.DisplayName;
+        var displayModel = string.IsNullOrWhiteSpace(vehicle.Model)
+            ? VehicleVisualService.VehicleSeriesHint(vehicle)
+            : vehicle.Model;
+        _vehicleName.Text = string.Join(" ", new[] { vehicle.Make, displayModel }
+            .Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+        if (string.IsNullOrWhiteSpace(_vehicleName.Text))
+            _vehicleName.Text = "Автомобиль";
+
+        SetVehiclePhotoPlaceholder(
+            "Ищем фото автомобиля",
+            "Подбираем точную модель и цвет…");
+
         var visual = await _visual.ResolveAsync(vehicle);
 
         _vehicleColor.Text = string.IsNullOrWhiteSpace(visual.ColorName)
@@ -449,14 +514,44 @@ public sealed class DiagnosticsPage : ContentPage
               (string.IsNullOrWhiteSpace(visual.PaintCode) ? "" : " • код " + visual.PaintCode);
 
         _vehicleColorSwatch.Color = VehicleVisualService.Swatch(visual.ColorName);
-        _vehiclePhoto.Source = string.IsNullOrWhiteSpace(visual.PhotoUrl)
-            ? null
-            : new UriImageSource
-            {
-                Uri = new Uri(visual.PhotoUrl),
-                CachingEnabled = true,
-                CacheValidity = TimeSpan.FromDays(30)
-            };
+
+        if (string.IsNullOrWhiteSpace(visual.ColorName))
+        {
+            SetVehiclePhotoPlaceholder(
+                "Укажите цвет кузова",
+                "После выбора цвета загрузится реальное фото автомобиля.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(visual.PhotoUrl))
+        {
+            SetVehiclePhotoPlaceholder(
+                "Фото не найдено",
+                "Цвет сохранён. Точное фото появится, когда найдётся совпадение модели и цвета.");
+            return;
+        }
+
+        _vehiclePhoto.Source = new UriImageSource
+        {
+            Uri = new Uri(visual.PhotoUrl),
+            CachingEnabled = true,
+            CacheValidity = TimeSpan.FromDays(30)
+        };
+        HideVehiclePhotoPlaceholder();
+    }
+
+    private void SetVehiclePhotoPlaceholder(string title, string message)
+    {
+        _vehiclePhotoPlaceholderTitle.Text = title;
+        _vehiclePhotoPlaceholderText.Text = message;
+        if (_vehiclePhotoPlaceholder is not null)
+            _vehiclePhotoPlaceholder.IsVisible = true;
+    }
+
+    private void HideVehiclePhotoPlaceholder()
+    {
+        if (_vehiclePhotoPlaceholder is not null)
+            _vehiclePhotoPlaceholder.IsVisible = false;
     }
 
     private async void DtcClicked(object? sender, EventArgs e)

@@ -9,7 +9,25 @@ public sealed class DashboardPage : ContentPage
     private readonly MobileState _state = AppServices.Get<MobileState>();
     private readonly VehicleVisualService _visual;
 
-    private readonly Image _heroPhoto = new() { Source = "hero_car.jpg", Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
+    private readonly Image _heroPhoto = new() { Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
+    private Grid? _heroPhotoPlaceholder;
+    private readonly Label _heroPhotoPlaceholderTitle = new()
+    {
+        Text = "Укажите цвет кузова",
+        TextColor = Theme.Text,
+        FontSize = 15,
+        FontAttributes = FontAttributes.Bold,
+        HorizontalTextAlignment = TextAlignment.Center,
+        FontAutoScalingEnabled = false
+    };
+    private readonly Label _heroPhotoPlaceholderText = new()
+    {
+        Text = "После выбора цвета загрузится реальное фото автомобиля.",
+        TextColor = Theme.Muted,
+        FontSize = 11,
+        HorizontalTextAlignment = TextAlignment.Center,
+        FontAutoScalingEnabled = false
+    };
     private readonly Label _heroTitle = new() { Text = "Автомобиль не выбран", FontSize = 21, FontAttributes = FontAttributes.Bold, TextColor = Theme.Text, FontAutoScalingEnabled = false };
     private readonly Label _heroColor = Theme.MutedText("Цвет • не определён");
     private readonly BoxView _heroColorSwatch = new() { WidthRequest = 14, HeightRequest = 14, Color = Theme.Line };
@@ -101,6 +119,38 @@ public sealed class DashboardPage : ContentPage
         _heroColor.VerticalTextAlignment = TextAlignment.Center;
         colorRow.Add(_heroColor);
 
+        _heroPhotoPlaceholder = new Grid
+        {
+            Padding = new Thickness(24),
+            HorizontalOptions = LayoutOptions.Fill,
+            VerticalOptions = LayoutOptions.Fill,
+            IsVisible = true
+        };
+        _heroPhotoPlaceholder.Add(new VerticalStackLayout
+        {
+            Spacing = 6,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            MaximumWidthRequest = 310,
+            Children =
+            {
+                new Image
+                {
+                    Source = "vehicle_placeholder.svg",
+                    WidthRequest = 76,
+                    HeightRequest = 52,
+                    Aspect = Aspect.AspectFit,
+                    HorizontalOptions = LayoutOptions.Center
+                },
+                _heroPhotoPlaceholderTitle,
+                _heroPhotoPlaceholderText
+            }
+        });
+
+        var photoLayer = new Grid();
+        photoLayer.Add(_heroPhoto);
+        photoLayer.Add(_heroPhotoPlaceholder);
+
         var photoFrame = new Border
         {
             HeightRequest = 225,
@@ -109,7 +159,7 @@ public sealed class DashboardPage : ContentPage
             StrokeThickness = 1,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 16 },
             Padding = new Thickness(8),
-            Content = _heroPhoto
+            Content = photoLayer
         };
 
         return Theme.CardView(new VerticalStackLayout
@@ -292,30 +342,75 @@ public sealed class DashboardPage : ContentPage
 
     private async Task RefreshHeroVehicleAsync(ServerVehicleRecord? vehicle)
     {
+        _heroPhoto.Source = null;
+
         if (vehicle is null)
         {
             _heroTitle.Text = "Автомобиль не выбран";
             _heroColor.Text = "Цвет • не определён";
             _heroColorSwatch.Color = Theme.Line;
-            _heroPhoto.Source = "hero_car.jpg";
+            SetHeroPhotoPlaceholder(
+                "Автомобиль не выбран",
+                "Подключите OBD или выберите автомобиль, чтобы загрузить его фото.");
             return;
         }
 
-        _heroTitle.Text = vehicle.DisplayName;
+        var displayModel = string.IsNullOrWhiteSpace(vehicle.Model)
+            ? VehicleVisualService.VehicleSeriesHint(vehicle)
+            : vehicle.Model;
+        _heroTitle.Text = string.Join(" ", new[] { vehicle.Make, displayModel }
+            .Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+        if (string.IsNullOrWhiteSpace(_heroTitle.Text))
+            _heroTitle.Text = "Автомобиль";
+
+        SetHeroPhotoPlaceholder(
+            "Ищем фото автомобиля",
+            "Подбираем точную модель и цвет…");
+
         var visual = await _visual.ResolveAsync(vehicle);
         _heroColor.Text = string.IsNullOrWhiteSpace(visual.ColorName)
             ? "Цвет • не определён"
             : "Цвет • " + visual.ColorName +
               (string.IsNullOrWhiteSpace(visual.PaintCode) ? "" : " • код " + visual.PaintCode);
         _heroColorSwatch.Color = VehicleVisualService.Swatch(visual.ColorName);
-        _heroPhoto.Source = string.IsNullOrWhiteSpace(visual.PhotoUrl)
-            ? null
-            : new UriImageSource
-            {
-                Uri = new Uri(visual.PhotoUrl),
-                CachingEnabled = true,
-                CacheValidity = TimeSpan.FromDays(30)
-            };
+
+        if (string.IsNullOrWhiteSpace(visual.ColorName))
+        {
+            SetHeroPhotoPlaceholder(
+                "Укажите цвет кузова",
+                "После выбора цвета загрузится реальное фото автомобиля.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(visual.PhotoUrl))
+        {
+            SetHeroPhotoPlaceholder(
+                "Фото не найдено",
+                "Цвет сохранён. Точное фото появится, когда найдётся совпадение модели и цвета.");
+            return;
+        }
+
+        _heroPhoto.Source = new UriImageSource
+        {
+            Uri = new Uri(visual.PhotoUrl),
+            CachingEnabled = true,
+            CacheValidity = TimeSpan.FromDays(30)
+        };
+        HideHeroPhotoPlaceholder();
+    }
+
+    private void SetHeroPhotoPlaceholder(string title, string message)
+    {
+        _heroPhotoPlaceholderTitle.Text = title;
+        _heroPhotoPlaceholderText.Text = message;
+        if (_heroPhotoPlaceholder is not null)
+            _heroPhotoPlaceholder.IsVisible = true;
+    }
+
+    private void HideHeroPhotoPlaceholder()
+    {
+        if (_heroPhotoPlaceholder is not null)
+            _heroPhotoPlaceholder.IsVisible = false;
     }
 
     private static Label ValueLabel() => new()

@@ -12,12 +12,13 @@ public sealed class VehiclesPage : ContentPage
     private readonly VerticalStackLayout _vehicleCards = new() { Spacing = 10 };
     private readonly Image _selectedPhoto = new() { Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
     private Grid? _photoPlaceholder;
-    private readonly Label _photoPlaceholderIcon = new()
+    private readonly Image _photoPlaceholderIcon = new()
     {
-        Text = "🚘",
-        FontSize = 34,
-        HorizontalTextAlignment = TextAlignment.Center,
-        FontAutoScalingEnabled = false
+        Source = "vehicle_placeholder.svg",
+        WidthRequest = 76,
+        HeightRequest = 52,
+        Aspect = Aspect.AspectFit,
+        HorizontalOptions = LayoutOptions.Center
     };
     private readonly Label _photoPlaceholderTitle = new()
     {

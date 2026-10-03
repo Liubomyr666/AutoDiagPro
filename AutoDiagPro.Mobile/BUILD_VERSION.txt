@@ -1,5 +1,5 @@
 AutoDiag Pro iOS
-Version: 3.30.0
-Build: 57
-Windows reference: 7.10.3
-Feature: Live Data 2.0 + Smart Service Steps 2-3
+Version: 3.31.0
+Build: 58
+Windows reference: 7.10.4
+Feature: Step 4 — Before / After repair diagnostic report

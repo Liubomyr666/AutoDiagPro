@@ -11,6 +11,31 @@ public sealed class VehiclesPage : ContentPage
 
     private readonly VerticalStackLayout _vehicleCards = new() { Spacing = 10 };
     private readonly Image _selectedPhoto = new() { Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
+    private Grid? _photoPlaceholder;
+    private readonly Label _photoPlaceholderIcon = new()
+    {
+        Text = "🚘",
+        FontSize = 34,
+        HorizontalTextAlignment = TextAlignment.Center,
+        FontAutoScalingEnabled = false
+    };
+    private readonly Label _photoPlaceholderTitle = new()
+    {
+        Text = "Укажите цвет кузова",
+        TextColor = Theme.Text,
+        FontSize = 15,
+        FontAttributes = FontAttributes.Bold,
+        HorizontalTextAlignment = TextAlignment.Center,
+        FontAutoScalingEnabled = false
+    };
+    private readonly Label _photoPlaceholderText = new()
+    {
+        Text = "После выбора цвета загрузится реальное фото автомобиля.",
+        TextColor = Theme.Muted,
+        FontSize = 11,
+        HorizontalTextAlignment = TextAlignment.Center,
+        FontAutoScalingEnabled = false
+    };
     private readonly Label _selectedColor = Theme.MutedText("Цвет • не определён");
     private readonly BoxView _selectedColorSwatch = new() { WidthRequest = 14, HeightRequest = 14, Color = Theme.Line };
     private readonly Label _status = Theme.MutedText("Загрузка...");
@@ -138,6 +163,31 @@ public sealed class VehiclesPage : ContentPage
         _selectedColor.VerticalTextAlignment = TextAlignment.Center;
         colorRow.Add(_selectedColor);
 
+        _photoPlaceholder = new Grid
+        {
+            Padding = new Thickness(24),
+            HorizontalOptions = LayoutOptions.Fill,
+            VerticalOptions = LayoutOptions.Fill,
+            IsVisible = true
+        };
+        _photoPlaceholder.Add(new VerticalStackLayout
+        {
+            Spacing = 6,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            MaximumWidthRequest = 310,
+            Children =
+            {
+                _photoPlaceholderIcon,
+                _photoPlaceholderTitle,
+                _photoPlaceholderText
+            }
+        });
+
+        var photoLayer = new Grid();
+        photoLayer.Add(_selectedPhoto);
+        photoLayer.Add(_photoPlaceholder);
+
         var photoFrame = new Border
         {
             HeightRequest = 230,
@@ -146,7 +196,7 @@ public sealed class VehiclesPage : ContentPage
             StrokeThickness = 1,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 16 },
             Padding = new Thickness(8),
-            Content = _selectedPhoto
+            Content = photoLayer
         };
 
         var details = new VerticalStackLayout
@@ -426,13 +476,29 @@ public sealed class VehiclesPage : ContentPage
     private async Task RefreshSelectedAsync(IReadOnlyList<ServerScanRecord> scans, IReadOnlyList<ServerWorkOrderRecord> orders)
     {
         var v = _state.SelectedVehicle;
-        _selectedTitle.Text = v?.DisplayName ?? "Автомобиль не выбран";
+        if (v is null)
+        {
+            _selectedTitle.Text = "Автомобиль не выбран";
+        }
+        else
+        {
+            var displayModel = string.IsNullOrWhiteSpace(v.Model)
+                ? VehicleVisualService.VehicleSeriesHint(v)
+                : v.Model;
+            _selectedTitle.Text = string.Join(" ", new[] { v.Make, displayModel }
+                .Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+            if (string.IsNullOrWhiteSpace(_selectedTitle.Text))
+                _selectedTitle.Text = "Автомобиль";
+        }
         _selectedVin.Text = "VIN • " + (string.IsNullOrWhiteSpace(v?.Vin) ? "—" : v!.Vin);
         _selectedMileage.Text = v?.MileageKm is null ? "Пробег • —" : $"Пробег • {v.MileageKm:N0} км";
 
         if (v is null)
         {
             _selectedPhoto.Source = null;
+            SetPhotoPlaceholder(
+                "Автомобиль не выбран",
+                "Подключите OBD или выберите автомобиль, чтобы загрузить его фото.");
             _selectedColor.Text = "Цвет • не определён";
             _selectedColorSwatch.Color = Theme.Line;
             _condition.Text = "Нет данных";
@@ -521,6 +587,11 @@ public sealed class VehiclesPage : ContentPage
 
     private async Task RefreshVehicleVisualAsync(ServerVehicleRecord vehicle)
     {
+        _selectedPhoto.Source = null;
+        SetPhotoPlaceholder(
+            "Ищем фото автомобиля",
+            "Подбираем точную модель и цвет…");
+
         var visual = await _visual.ResolveAsync(vehicle);
 
         _selectedColor.Text = string.IsNullOrWhiteSpace(visual.ColorName)
@@ -530,14 +601,43 @@ public sealed class VehiclesPage : ContentPage
 
         _selectedColorSwatch.Color = VehicleVisualService.Swatch(visual.ColorName);
 
-        _selectedPhoto.Source = string.IsNullOrWhiteSpace(visual.PhotoUrl)
-            ? null
-            : new UriImageSource
-            {
-                Uri = new Uri(visual.PhotoUrl),
-                CachingEnabled = true,
-                CacheValidity = TimeSpan.FromDays(30)
-            };
+        if (string.IsNullOrWhiteSpace(visual.ColorName))
+        {
+            SetPhotoPlaceholder(
+                "Укажите цвет кузова",
+                "После выбора цвета загрузится реальное фото автомобиля.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(visual.PhotoUrl))
+        {
+            SetPhotoPlaceholder(
+                "Фото не найдено",
+                "Цвет сохранён. Точное фото появится, когда найдётся совпадение модели и цвета.");
+            return;
+        }
+
+        _selectedPhoto.Source = new UriImageSource
+        {
+            Uri = new Uri(visual.PhotoUrl),
+            CachingEnabled = true,
+            CacheValidity = TimeSpan.FromDays(30)
+        };
+        HidePhotoPlaceholder();
+    }
+
+    private void SetPhotoPlaceholder(string title, string message)
+    {
+        _photoPlaceholderTitle.Text = title;
+        _photoPlaceholderText.Text = message;
+        if (_photoPlaceholder is not null)
+            _photoPlaceholder.IsVisible = true;
+    }
+
+    private void HidePhotoPlaceholder()
+    {
+        if (_photoPlaceholder is not null)
+            _photoPlaceholder.IsVisible = false;
     }
 
     private async Task EditColorAsync()

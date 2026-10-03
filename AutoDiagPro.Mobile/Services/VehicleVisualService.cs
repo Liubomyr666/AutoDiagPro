@@ -46,11 +46,12 @@ public sealed class VehicleVisualService
             }
         }
 
-        var photoKey = key + "_photo_v3";
+        var photoKey = key + "_photo_v4";
         var normalizedColor = NormalizeColorForSearch(color);
+        var seriesHint = VehicleSeriesHint(vehicle);
         var hasExactIdentity =
             !string.IsNullOrWhiteSpace(vehicle.Make) &&
-            !string.IsNullOrWhiteSpace(vehicle.Model) &&
+            (!string.IsNullOrWhiteSpace(vehicle.Model) || !string.IsNullOrWhiteSpace(seriesHint)) &&
             !string.IsNullOrWhiteSpace(normalizedColor);
 
         var photoUrl = hasExactIdentity
@@ -88,6 +89,7 @@ public sealed class VehicleVisualService
         Preferences.Default.Remove(key + "_photo");
         Preferences.Default.Remove(key + "_photo_v2");
         Preferences.Default.Remove(key + "_photo_v3");
+        Preferences.Default.Remove(key + "_photo_v4");
     }
 
     public static Color Swatch(string? colorName)
@@ -178,7 +180,7 @@ public sealed class VehicleVisualService
         return string.Join(" ", parts.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
     }
 
-    private static string VehicleSeriesHint(ServerVehicleRecord vehicle)
+    public static string VehicleSeriesHint(ServerVehicleRecord vehicle)
     {
         var vin = VehicleIdentityService.Normalize(vehicle.Vin);
         if (vin.Length != 17 ||

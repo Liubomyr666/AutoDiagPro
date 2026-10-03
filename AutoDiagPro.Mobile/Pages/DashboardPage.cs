@@ -1,4 +1,5 @@
-﻿using AutoDiagPro.Mobile.Services;
+﻿using AutoDiagPro.Mobile.Models;
+using AutoDiagPro.Mobile.Services;
 
 namespace AutoDiagPro.Mobile.Pages;
 

@@ -21,12 +21,37 @@ public sealed class ReportsPage : ContentPage
         TextColor = Theme.Text
     };
     private readonly Label _status = Theme.MutedText("Готовлю отчёт...");
+    private readonly Picker _beforeScan = new() { Title = "Scan ДО ремонта" };
+    private readonly Picker _afterScan = new() { Title = "Scan ПОСЛЕ ремонта" };
+    private readonly Label _beforeDtc = MetricValue("—");
+    private readonly Label _resolvedDtc = MetricValue("—");
+    private readonly Label _remainingDtc = MetricValue("—");
+    private readonly Label _newDtc = MetricValue("—");
+    private readonly Label _compareStatus = Theme.MutedText("Нужны минимум два полных scan одной машины.");
+    private readonly Editor _comparison = new()
+    {
+        IsReadOnly = true,
+        AutoSize = EditorAutoSizeOption.TextChanges,
+        MinimumHeightRequest = 260,
+        BackgroundColor = Theme.Surface,
+        TextColor = Theme.Text
+    };
+    private List<DiagnosticScanArchiveMobile> _diagnosticScans = new();
+    private RepairScanComparisonMobile? _lastComparison;
 
     public ReportsPage()
     {
         BackgroundColor = Theme.Page;
         Shell.SetNavBarIsVisible(this, true);
         Title = "Отчёты";
+
+        foreach (var picker in new[] { _beforeScan, _afterScan })
+        {
+            picker.TextColor = Theme.Text;
+            picker.BackgroundColor = Theme.Surface;
+        }
+        _beforeScan.SelectedIndexChanged += (_, _) => CompareSelectedLocalScans();
+        _afterScan.SelectedIndexChanged += (_, _) => CompareSelectedLocalScans();
 
         var refresh = Theme.PrimaryButton("Собрать отчёт");
         refresh.Clicked += async (_, _) => await BuildAsync();
@@ -56,6 +81,7 @@ public sealed class ReportsPage : ContentPage
                     Theme.Eyebrow("REPORT CENTER"),
                     Theme.H1("Отчёт по автомобилю"),
                     Theme.MutedText(AccessPolicy.IsClient ? "Диагностика, DTC, работы на СТО и сервисный план выбранного автомобиля." : "История scan, DTC, заказ-наряды, Repair Brain и сервисный план в одном отчёте."),
+                    BuildBeforeAfterCard(),
                     refresh, share, pdf, _status,
                     Theme.CardView(_report)
                 }
@@ -69,6 +95,183 @@ public sealed class ReportsPage : ContentPage
         await BuildAsync();
     }
 
+    private View BuildBeforeAfterCard()
+    {
+        var compare = Theme.PrimaryButton("Сравнить ДО / ПОСЛЕ");
+        compare.Clicked += (_, _) => CompareSelectedLocalScans();
+
+        var share = Theme.SecondaryButton("Поделиться сравнением");
+        share.Clicked += async (_, _) => await ShareComparisonAsync();
+
+        var metrics = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            RowDefinitions =
+            {
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 8,
+            RowSpacing = 8
+        };
+        metrics.Add(MetricCard("DTC ДО", _beforeDtc), 0, 0);
+        metrics.Add(MetricCard("ИСПРАВЛЕНО", _resolvedDtc), 1, 0);
+        metrics.Add(MetricCard("ОСТАЛОСЬ", _remainingDtc), 0, 1);
+        metrics.Add(MetricCard("НОВЫЕ", _newDtc), 1, 1);
+
+        return Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 10,
+            Children =
+            {
+                Theme.Eyebrow("ДО / ПОСЛЕ РЕМОНТА"),
+                Theme.MutedText("Выберите два полных scan одной машины. AutoDiag сравнит DTC и общие Live Data параметры."),
+                Theme.MutedText("SCAN ДО"),
+                _beforeScan,
+                Theme.MutedText("SCAN ПОСЛЕ"),
+                _afterScan,
+                metrics,
+                _compareStatus,
+                new HorizontalStackLayout
+                {
+                    Spacing = 8,
+                    Children = { compare, share }
+                },
+                _comparison
+            }
+        });
+    }
+
+    private static Label MetricValue(string text) => new()
+    {
+        Text = text,
+        TextColor = Theme.Text,
+        FontSize = 22,
+        FontAttributes = FontAttributes.Bold
+    };
+
+    private static View MetricCard(string title, Label value) =>
+        Theme.SoftCard(new VerticalStackLayout
+        {
+            Spacing = 4,
+            Children =
+            {
+                new Label
+                {
+                    Text = title,
+                    TextColor = Theme.Muted,
+                    FontSize = 10
+                },
+                value
+            }
+        });
+
+    private async Task LoadLocalComparisonHistoryAsync()
+    {
+        var vehicle = _state.SelectedVehicle;
+        if (vehicle is null)
+        {
+            _diagnosticScans.Clear();
+            _beforeScan.ItemsSource = Array.Empty<string>();
+            _afterScan.ItemsSource = Array.Empty<string>();
+            ResetLocalComparison("Сначала выберите автомобиль.");
+            return;
+        }
+
+        var db = await _store.LoadAsync();
+        _diagnosticScans = db.DiagnosticScans
+            .Where(x => x.VehicleId == vehicle.Id ||
+                        (!string.IsNullOrWhiteSpace(vehicle.Vin) &&
+                         string.Equals(x.Snapshot.Vin, vehicle.Vin, StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(x => x.Snapshot.CapturedAt)
+            .ToList();
+
+        var names = _diagnosticScans.Select(x => x.DisplayName).ToList();
+        _beforeScan.ItemsSource = names;
+        _afterScan.ItemsSource = names;
+
+        if (_diagnosticScans.Count < 2)
+        {
+            ResetLocalComparison(_diagnosticScans.Count == 0
+                ? "Нет локальных полных scan. Запустите полную диагностику минимум два раза."
+                : "Есть только один полный scan. После ремонта выполните контрольный scan.");
+            if (_diagnosticScans.Count == 1)
+                _afterScan.SelectedIndex = 0;
+            return;
+        }
+
+        _afterScan.SelectedIndex = 0;
+        _beforeScan.SelectedIndex = 1;
+        CompareSelectedLocalScans();
+    }
+
+    private void CompareSelectedLocalScans()
+    {
+        if (_beforeScan.SelectedIndex < 0 || _afterScan.SelectedIndex < 0 ||
+            _beforeScan.SelectedIndex >= _diagnosticScans.Count ||
+            _afterScan.SelectedIndex >= _diagnosticScans.Count)
+            return;
+
+        var before = _diagnosticScans[_beforeScan.SelectedIndex];
+        var after = _diagnosticScans[_afterScan.SelectedIndex];
+
+        if (before.Id == after.Id)
+        {
+            ResetLocalComparison("Scan ДО и ПОСЛЕ должны быть разными.");
+            return;
+        }
+
+        var aVin = VehicleIdentityService.Normalize(before.Snapshot.Vin);
+        var bVin = VehicleIdentityService.Normalize(after.Snapshot.Vin);
+        if (aVin.Length == 17 && bVin.Length == 17 &&
+            !string.Equals(aVin, bVin, StringComparison.OrdinalIgnoreCase))
+        {
+            ResetLocalComparison("VIN не совпадает — сравнение разных автомобилей заблокировано.");
+            return;
+        }
+
+        _lastComparison = RepairScanComparisonService.Compare(before.Snapshot, after.Snapshot);
+        _beforeDtc.Text = _lastComparison.BeforeCount.ToString();
+        _resolvedDtc.Text = _lastComparison.Resolved.Count.ToString();
+        _remainingDtc.Text = _lastComparison.Remaining.Count.ToString();
+        _newDtc.Text = _lastComparison.Added.Count.ToString();
+        _compareStatus.Text = RepairScanComparisonService.Verdict(_lastComparison);
+        _compareStatus.TextColor = _lastComparison.Added.Count > 0 ? Theme.Red :
+            _lastComparison.Remaining.Count > 0 ? Theme.TextSoft : Theme.Green;
+
+        var vehicleName = _state.SelectedVehicle?.DisplayName ?? "Автомобиль";
+        _comparison.Text = RepairScanComparisonService.BuildReport(
+            _lastComparison, vehicleName, null, null, null);
+    }
+
+    private void ResetLocalComparison(string status)
+    {
+        _lastComparison = null;
+        _beforeDtc.Text = _resolvedDtc.Text = _remainingDtc.Text = _newDtc.Text = "—";
+        _compareStatus.Text = status;
+        _compareStatus.TextColor = Theme.Muted;
+        _comparison.Text = "";
+    }
+
+    private async Task ShareComparisonAsync()
+    {
+        if (_lastComparison is null || string.IsNullOrWhiteSpace(_comparison.Text))
+        {
+            await DisplayAlert("До / После", "Сначала выберите два полных scan для сравнения.", "OK");
+            return;
+        }
+
+        await Share.Default.RequestAsync(new ShareTextRequest
+        {
+            Title = "AutoDiag Pro — До / После ремонта",
+            Text = _comparison.Text
+        });
+    }
+
     private async Task BuildAsync()
     {
         var v = _state.SelectedVehicle;
@@ -78,6 +281,8 @@ public sealed class ReportsPage : ContentPage
             _status.TextColor = Theme.Accent;
             return;
         }
+
+        await LoadLocalComparisonHistoryAsync();
 
         _status.Text = "Собираю данные AutoDiag Cloud...";
         _status.TextColor = Theme.Accent;
@@ -146,6 +351,19 @@ public sealed class ReportsPage : ContentPage
             };
 
             lines.Add("СРАВНЕНИЕ ДИАГНОСТИК");
+            if (_lastComparison is not null)
+            {
+                lines.Add("Детальный локальный scan ДО / ПОСЛЕ:");
+                lines.Add(RepairScanComparisonService.BuildReport(
+                    _lastComparison,
+                    v.DisplayName,
+                    null,
+                    null,
+                    null));
+                lines.Add("");
+                lines.Add("AutoDiag Cloud:");
+            }
+
             if (scans.Count == 0)
             {
                 lines.Add("Диагностик пока нет.");

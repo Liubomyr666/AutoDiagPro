@@ -49,6 +49,34 @@ public static class VehicleIdentityService
         return new(vin, true, make, country, year, wmi, summary);
     }
 
+    public static string InferModel(string? value)
+    {
+        var vin = Normalize(value);
+        if (vin.Length != 17) return "";
+
+        var wmi = vin[..3];
+        if (wmi is "WDD" or "WDB" or "WDC" or "W1K" or "W1N")
+        {
+            var series = vin.Substring(3, 3);
+            return series switch
+            {
+                "117" or "118" => "CLA",
+                "176" or "177" => "A-Class",
+                "204" or "205" or "206" => "C-Class",
+                "207" or "211" or "212" or "213" or "214" => "E-Class",
+                "221" or "222" or "223" => "S-Class",
+                "253" or "254" => "GLC",
+                "164" or "166" or "167" => "GLE",
+                "156" => "GLA",
+                "447" => "V-Class",
+                "906" or "907" => "Sprinter",
+                _ => ""
+            };
+        }
+
+        return "";
+    }
+
     public static string Normalize(string? value) =>
         new((value ?? "").Trim().ToUpperInvariant()
             .Where(c => char.IsLetterOrDigit(c) && c is not 'I' and not 'O' and not 'Q')

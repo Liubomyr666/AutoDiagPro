@@ -189,7 +189,7 @@ public sealed class VehicleVisualService
             var api =
                 "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=16" +
                 "&gsrsearch=" + Uri.EscapeDataString(search) +
-                "&prop=imageinfo&iiprop=url|size|mime&iiurlwidth=1400&format=json&origin=*";
+                "&prop=imageinfo&iiprop=url|size|mime|extmetadata&iiurlwidth=1400&format=json&origin=*";
 
             using var response = await Http.GetAsync(api, ct);
             response.EnsureSuccessStatusCode();
@@ -226,6 +226,11 @@ public sealed class VehicleVisualService
                     continue;
 
                 var info = infos[0];
+                var evidence = (lowerTitle + " " + info.GetRawText()).ToLowerInvariant();
+                if (!string.IsNullOrWhiteSpace(desiredColor) &&
+                    !evidence.Contains(desiredColor.ToLowerInvariant()))
+                    continue;
+
                 var width = info.TryGetProperty("width", out var w) && w.TryGetInt32(out var wi) ? wi : 0;
                 var height = info.TryGetProperty("height", out var h) && h.TryGetInt32(out var hi) ? hi : 0;
 

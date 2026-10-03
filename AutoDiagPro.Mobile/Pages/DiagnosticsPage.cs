@@ -788,9 +788,38 @@ public sealed class DiagnosticsPage : ContentPage
                     allDtc.Count,
                     summary);
 
+                var workspace = await _store.LoadAsync();
+                workspace.DiagnosticScans.Add(new DiagnosticScanArchiveMobile
+                {
+                    VehicleId = vehicle.Id,
+                    Make = Value(decoded?.Make, identity.Make),
+                    Model = Value(decoded?.Model, vehicle.Model ?? ""),
+                    Summary = summary,
+                    Snapshot = new RepairScanSnapshotMobile
+                    {
+                        CapturedAt = DateTimeOffset.Now,
+                        Vin = string.IsNullOrWhiteSpace(vin) ? vehicle.Vin ?? "" : vin,
+                        Protocol = protocol,
+                        Voltage = voltage,
+                        ConfirmedDtc = confirmedDtc.ToList(),
+                        PendingDtc = pendingDtc.ToList(),
+                        PermanentDtc = permanentDtc.ToList(),
+                        Live = new Dictionary<string, string>(live, StringComparer.OrdinalIgnoreCase)
+                    }
+                });
+
+                var staleScans = workspace.DiagnosticScans
+                    .Where(x => x.VehicleId == vehicle.Id)
+                    .OrderByDescending(x => x.Snapshot.CapturedAt)
+                    .Skip(50)
+                    .ToList();
+                foreach (var stale in staleScans)
+                    workspace.DiagnosticScans.Remove(stale);
+                await _store.SaveAsync(workspace);
+
                 var syncText = uploaded
-                    ? "✓ Scan сохранён на AutoDiag Server."
-                    : "OFFLINE • Scan сохранён на iPhone и будет отправлен автоматически.";
+                    ? "✓ Scan сохранён на AutoDiag Server + в локальную историю ДО/ПОСЛЕ."
+                    : "OFFLINE • Scan сохранён на iPhone и в историю ДО/ПОСЛЕ; отправится на сервер автоматически.";
 
                 if (allDtc.Count == 0)
                     ShowResult(summary + "\n\n" + syncText);

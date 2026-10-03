@@ -25,7 +25,6 @@ public sealed class ClientMorePage : ContentPage
                 {
                     ProfileCard(),
                     Theme.H2("Мой автомобиль"),
-                    Row("Каталог двигателей", "Модели, поколения и быстрые подсказки", "tab_car.svg", "enginecatalog"),
                     Row("AI помощник", "Разбор неисправностей и вопросов", "tab_ai.png", "ai"),
                     Row("История автомобиля", "Диагностика, ремонт, ТО, детали и счета", "tab_history.png", "timeline"),
                     Row("История диагностики", "Все сохранённые проверки", "tab_history.png", "history"),

@@ -1,5 +1,4 @@
 name: Build AutoDiag Pro iOS IPA
-# Release: AutoDiag Pro iOS 3.28.2 build 53
 
 on:
   workflow_dispatch:
@@ -33,6 +32,16 @@ jobs:
         run: |
           dotnet workload install maui-ios
           dotnet workload list
+      - name: Read app version
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_VERSION="$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' AutoDiagPro.Mobile/AutoDiagPro.Mobile.csproj | head -n 1)"
+          APP_BUILD="$(sed -n 's:.*<ApplicationVersion>\(.*\)</ApplicationVersion>.*:\1:p' AutoDiagPro.Mobile/AutoDiagPro.Mobile.csproj | head -n 1)"
+          test -n "$APP_VERSION"
+          test -n "$APP_BUILD"
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "APP_BUILD=$APP_BUILD" >> "$GITHUB_ENV"
       - name: Restore
         working-directory: AutoDiagPro.Mobile
         run: dotnet restore AutoDiagPro.Mobile.csproj
@@ -54,14 +63,15 @@ jobs:
           rm -rf ipa
           mkdir -p ipa/Payload
           cp -R "$APP_PATH" ipa/Payload/
+          IPA_NAME="AutoDiagPro_iOS_v${APP_VERSION}_build${APP_BUILD}_AltStore.ipa"
           cd ipa
-          /usr/bin/zip -qry ../AutoDiagPro_iOS_v3.28.2_build53_AltStore.ipa Payload
+          /usr/bin/zip -qry "../$IPA_NAME" Payload
           cd ..
-          ls -lh AutoDiagPro_iOS_v3.28.2_build53_AltStore.ipa
+          ls -lh "$IPA_NAME"
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: AutoDiagPro-iOS-v3.28.2-build53-AltStore
-          path: AutoDiagPro_iOS_v3.28.2_build53_AltStore.ipa
+          name: AutoDiagPro-iOS-v${{ env.APP_VERSION }}-build${{ env.APP_BUILD }}-AltStore
+          path: AutoDiagPro_iOS_v${{ env.APP_VERSION }}_build${{ env.APP_BUILD }}_AltStore.ipa
           if-no-files-found: error
           retention-days: 30

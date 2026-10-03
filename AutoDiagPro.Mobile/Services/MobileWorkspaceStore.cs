@@ -120,6 +120,7 @@ public sealed class MobileWorkspaceDatabase
     public List<WearCheckMobile> WearChecks { get; set; } = new();
     public List<MobileNotificationRecord> Notifications { get; set; } = new();
     public List<PendingScanUploadMobile> PendingScans { get; set; } = new();
+    public List<DiagnosticScanArchiveMobile> DiagnosticScans { get; set; } = new();
     public List<MobileEmployeeRecord> Employees { get; set; } = new();
 }
 
@@ -240,6 +241,21 @@ public sealed class PendingScanUploadMobile
     public int DtcCount { get; set; }
     public string Summary { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
+}
+
+public sealed class DiagnosticScanArchiveMobile
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid VehicleId { get; set; }
+    public string Make { get; set; } = "";
+    public string Model { get; set; } = "";
+    public string Summary { get; set; } = "";
+    public RepairScanSnapshotMobile Snapshot { get; set; } = new();
+
+    public string DisplayName =>
+        $"{Snapshot.CapturedAt:dd.MM.yyyy HH:mm} • " +
+        $"{(string.IsNullOrWhiteSpace(Make) ? "Авто" : Make)} " +
+        $"{Model} • DTC {Snapshot.AllDtc.Count}";
 }
 
 public sealed class MobileEmployeeRecord

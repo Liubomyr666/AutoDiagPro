@@ -10,6 +10,7 @@ public sealed class DiagnosticsPage : ContentPage
     private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
     private readonly MobileWorkspaceStore _store = AppServices.Get<MobileWorkspaceStore>();
+    private readonly VehicleVisualService _visual;
 
     private readonly Entry _host = new() { Text = Preferences.Default.Get("obd_host", "192.168.0.10"), Placeholder = "IP адаптера" };
     private readonly Entry _port = new() { Text = Preferences.Default.Get("obd_port", 35000).ToString(), Placeholder = "Порт", Keyboard = Keyboard.Numeric };
@@ -20,13 +21,25 @@ public sealed class DiagnosticsPage : ContentPage
     private readonly Grid _wifiFields = new();
     private List<BleObdDevice> _bleFound = new();
     private readonly Label _connection = Theme.MutedText("Адаптер не подключён");
+    private readonly Label _vehicleName = new()
+    {
+        Text = "Автомобиль не определён",
+        FontSize = 16,
+        FontAttributes = FontAttributes.Bold,
+        TextColor = Theme.Text,
+        FontAutoScalingEnabled = false
+    };
     private readonly Label _vehicle = Theme.MutedText("VIN • —");
+    private readonly Image _vehiclePhoto = new() { Source = "hero_car.jpg", Aspect = Aspect.AspectFill };
+    private readonly Label _vehicleColor = Theme.MutedText("Цвет • не определён");
+    private readonly BoxView _vehicleColorSwatch = new() { WidthRequest = 14, HeightRequest = 14, Color = Theme.Line };
     private readonly Label _protocol = Theme.MutedText("Протокол • —");
     private readonly Label _voltage = Theme.MutedText("Напряжение • —");
     private readonly VerticalStackLayout _results = new() { Spacing = 8 };
 
     public DiagnosticsPage()
     {
+        _visual = new VehicleVisualService(_api);
         Title = "Диагностика";
         BackgroundColor = Theme.Page;
         StyleEntry(_host);
@@ -80,6 +93,7 @@ public sealed class DiagnosticsPage : ContentPage
         _vehicle.Text = selected is null
             ? "VIN • автомобиль не выбран"
             : "VIN • " + (string.IsNullOrWhiteSpace(selected.Vin) ? "—" : selected.Vin);
+        await RefreshVehicleVisualAsync(selected);
 
         if (_obd.IsConnected)
         {
@@ -182,16 +196,47 @@ public sealed class DiagnosticsPage : ContentPage
         }
     }
 
-    private View BuildVehicleCard() =>
-        Theme.CardView(new VerticalStackLayout
+    private View BuildVehicleCard()
+    {
+        var photo = new Border
         {
-            Spacing = 7,
+            HeightRequest = 150,
+            Stroke = Theme.Line,
+            StrokeThickness = 1,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 14 },
+            Content = _vehiclePhoto
+        };
+
+        var colorRow = new HorizontalStackLayout { Spacing = 7 };
+        colorRow.Add(new Border
+        {
+            WidthRequest = 20,
+            HeightRequest = 20,
+            Padding = 3,
+            BackgroundColor = Theme.Surface,
+            Stroke = Theme.Line,
+            StrokeThickness = 1,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },
+            Content = _vehicleColorSwatch
+        });
+        _vehicleColor.VerticalTextAlignment = TextAlignment.Center;
+        colorRow.Add(_vehicleColor);
+
+        return Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 8,
             Children =
             {
-                new Label { Text = "АВТОМОБИЛЬ", FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
-                _vehicle, _protocol, _voltage
+                new Label { Text = "ПОДКЛЮЧЕННЫЙ АВТОМОБИЛЬ", FontAttributes = FontAttributes.Bold, TextColor = Theme.Text },
+                photo,
+                _vehicleName,
+                _vehicle,
+                colorRow,
+                _protocol,
+                _voltage
             }
         });
+    }
     private View BuildActionsCard()
     {
         var identify = DarkButton("Определить автомобиль по VIN");
@@ -280,6 +325,15 @@ public sealed class DiagnosticsPage : ContentPage
             _connection.TextColor = Theme.Green;
             _protocol.Text = "Протокол • " + await _obd.ProtocolAsync();
             _voltage.Text = "Напряжение • " + await _obd.VoltageAsync();
+
+            try
+            {
+                await IdentifyVehicleAsync(showResult: false);
+            }
+            catch
+            {
+                // Connection remains valid even when this ECU does not expose VIN automatically.
+            }
         }
         catch (Exception ex)
         {
@@ -297,24 +351,78 @@ public sealed class DiagnosticsPage : ContentPage
         if (!RequireConnection()) return;
         try
         {
-            var vin = await _obd.VinAsync();
-            var identity = VehicleIdentityService.Decode(vin);
-            _vehicle.Text = string.IsNullOrWhiteSpace(vin)
-                ? "VIN • не прочитан"
-                : $"VIN • {identity.Vin} • {identity.Make} • {identity.ModelYear?.ToString() ?? "год —"}";
-
-            if (!string.IsNullOrWhiteSpace(vin))
-            {
-                _state.LastVin = identity.Vin;
-                var decoded = await TryDecodeVinAsync(identity.Vin);
-                var matched = await EnsureVehicleForVinAsync(identity, decoded);
-                ShowResult($"Автомобиль определён\nVIN: {identity.Vin}\nМарка: {Value(decoded?.Make, identity.Make)}\nМодель: {Value(decoded?.Model)}\nМодельный год: {decoded?.ParsedYear?.ToString() ?? identity.ModelYear?.ToString() ?? "—"}\nДвигатель: {Value(decoded?.Engine)}{Volume(decoded?.DisplacementL)}\nТопливо: {Value(decoded?.FuelType)}\nКоробка: {Value(decoded?.Transmission)}\nПривод: {Value(decoded?.DriveType)}\nКузов: {Value(decoded?.BodyClass)}\nРегион: {identity.Country}\nWMI: {identity.Wmi}\nИсточник: {Value(decoded?.Source, "VIN / ECU")}\nAutoDiag: {(matched is null ? "VIN определён, но автомобиль не синхронизирован" : "автомобиль выбран и синхронизирован")}");
-            }
+            await IdentifyVehicleAsync(showResult: true);
         }
         catch (Exception ex)
         {
             await DisplayAlert("VIN", ex.Message, "OK");
         }
+    }
+
+    private async Task<ServerVehicleRecord?> IdentifyVehicleAsync(bool showResult)
+    {
+        var vin = await _obd.VinAsync();
+        var identity = VehicleIdentityService.Decode(vin);
+
+        if (string.IsNullOrWhiteSpace(vin))
+        {
+            _vehicleName.Text = "Автомобиль не определён";
+            _vehicle.Text = "VIN • не прочитан";
+            await RefreshVehicleVisualAsync(null);
+            return null;
+        }
+
+        _state.LastVin = identity.Vin;
+        var decoded = await TryDecodeVinAsync(identity.Vin);
+        var matched = await EnsureVehicleForVinAsync(identity, decoded);
+
+        var make = Value(decoded?.Make, identity.Make);
+        var model = Value(decoded?.Model);
+        var year = decoded?.ParsedYear?.ToString() ?? identity.ModelYear?.ToString() ?? "—";
+
+        _vehicleName.Text = string.Join(" ", new[] { make, model }
+            .Where(x => !string.IsNullOrWhiteSpace(x) && x != "—")).Trim();
+        if (string.IsNullOrWhiteSpace(_vehicleName.Text))
+            _vehicleName.Text = "Автомобиль определён";
+
+        _vehicle.Text = $"VIN • {identity.Vin} • {year}";
+        await RefreshVehicleVisualAsync(matched ?? _state.SelectedVehicle);
+
+        if (showResult)
+        {
+            ShowResult($"Автомобиль определён\nVIN: {identity.Vin}\nМарка: {make}\nМодель: {model}\nМодельный год: {year}\nДвигатель: {Value(decoded?.Engine)}{Volume(decoded?.DisplacementL)}\nТопливо: {Value(decoded?.FuelType)}\nКоробка: {Value(decoded?.Transmission)}\nПривод: {Value(decoded?.DriveType)}\nКузов: {Value(decoded?.BodyClass)}\nРегион: {identity.Country}\nWMI: {identity.Wmi}\nИсточник: {Value(decoded?.Source, "VIN / ECU")}\nAutoDiag: {(matched is null ? "VIN определён, но автомобиль не синхронизирован" : "автомобиль выбран и синхронизирован")}");
+        }
+
+        return matched;
+    }
+
+    private async Task RefreshVehicleVisualAsync(ServerVehicleRecord? vehicle)
+    {
+        if (vehicle is null)
+        {
+            _vehiclePhoto.Source = "hero_car.jpg";
+            _vehicleColor.Text = "Цвет • не определён";
+            _vehicleColorSwatch.Color = Theme.Line;
+            return;
+        }
+
+        _vehicleName.Text = vehicle.DisplayName;
+        var visual = await _visual.ResolveAsync(vehicle);
+
+        _vehicleColor.Text = string.IsNullOrWhiteSpace(visual.ColorName)
+            ? "Цвет • не определён"
+            : "Цвет • " + visual.ColorName +
+              (string.IsNullOrWhiteSpace(visual.PaintCode) ? "" : " • код " + visual.PaintCode);
+
+        _vehicleColorSwatch.Color = VehicleVisualService.Swatch(visual.ColorName);
+        _vehiclePhoto.Source = string.IsNullOrWhiteSpace(visual.PhotoUrl)
+            ? "hero_car.jpg"
+            : new UriImageSource
+            {
+                Uri = new Uri(visual.PhotoUrl),
+                CachingEnabled = true,
+                CacheValidity = TimeSpan.FromDays(30)
+            };
     }
 
     private async void DtcClicked(object? sender, EventArgs e)

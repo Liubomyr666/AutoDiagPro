@@ -30,7 +30,6 @@ public sealed class AppShell : Shell
         Routing.RegisterRoute("notifications", typeof(NotificationsPage));
         Routing.RegisterRoute("audit", typeof(AuditPage));
         Routing.RegisterRoute("vehicleidentity", typeof(VehicleIdentityPage));
-        Routing.RegisterRoute("enginecatalog", typeof(EngineCatalogPage));
         Routing.RegisterRoute("diesel", typeof(DieselPage));
         Routing.RegisterRoute("injectors", typeof(InjectorPage));
 

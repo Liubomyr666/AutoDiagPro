@@ -7,8 +7,12 @@ public sealed class VehiclesPage : ContentPage
 {
     private readonly ApiService _api = AppServices.Get<ApiService>();
     private readonly MobileState _state = AppServices.Get<MobileState>();
+    private readonly VehicleVisualService _visual;
 
     private readonly VerticalStackLayout _vehicleCards = new() { Spacing = 10 };
+    private readonly Image _selectedPhoto = new() { Source = "hero_car.jpg", Aspect = Aspect.AspectFill };
+    private readonly Label _selectedColor = Theme.MutedText("Цвет • не определён");
+    private readonly BoxView _selectedColorSwatch = new() { WidthRequest = 14, HeightRequest = 14, Color = Theme.Line };
     private readonly Label _status = Theme.MutedText("Загрузка...");
     private readonly Label _selectedTitle = Value("Автомобиль не выбран", 20);
     private readonly Label _selectedVin = Theme.MutedText("VIN • —");
@@ -21,6 +25,7 @@ public sealed class VehiclesPage : ContentPage
 
     public VehiclesPage()
     {
+        _visual = new VehicleVisualService(_api);
         Title = "Авто";
         BackgroundColor = Theme.Page;
 
@@ -34,7 +39,6 @@ public sealed class VehiclesPage : ContentPage
                 {
                     BuildHeader(),
                     BuildVehicleHero(),
-                    BuildCatalogBanner(),
                     BuildStatusGrid(),
                     BuildQuickActions(),
                     Theme.H2("Мои автомобили"),
@@ -100,10 +104,16 @@ public sealed class VehiclesPage : ContentPage
         history.HeightRequest = 42;
         history.Clicked += async (_, _) => await Shell.Current.GoToAsync("history");
 
+        var color = Theme.SecondaryButton("Цвет");
+        color.FontSize = 13;
+        color.HeightRequest = 42;
+        color.Clicked += async (_, _) => await EditColorAsync();
+
         var buttons = new Grid
         {
             ColumnDefinitions =
             {
+                new ColumnDefinition(GridLength.Star),
                 new ColumnDefinition(GridLength.Star),
                 new ColumnDefinition(GridLength.Star)
             },
@@ -111,21 +121,38 @@ public sealed class VehiclesPage : ContentPage
         };
         buttons.Add(scanner, 0, 0);
         buttons.Add(history, 1, 0);
+        buttons.Add(color, 2, 0);
 
-        var grid = new Grid { HeightRequest = 220 };
-        grid.Add(new Image { Source = "hero_car.jpg", Aspect = Aspect.AspectFill });
-        grid.Add(new BoxView { Color = Theme.Page, Opacity = 0.64 });
+        var colorRow = new HorizontalStackLayout { Spacing = 7 };
+        colorRow.Add(new Border
+        {
+            WidthRequest = 20,
+            HeightRequest = 20,
+            Padding = 3,
+            BackgroundColor = Theme.Surface,
+            Stroke = Theme.Line,
+            StrokeThickness = 1,
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },
+            Content = _selectedColorSwatch
+        });
+        _selectedColor.VerticalTextAlignment = TextAlignment.Center;
+        colorRow.Add(_selectedColor);
+
+        var grid = new Grid { HeightRequest = 292 };
+        grid.Add(_selectedPhoto);
+        grid.Add(new BoxView { Color = Theme.Page, Opacity = 0.53 });
         grid.Add(new VerticalStackLayout
         {
             Padding = new Thickness(16),
-            Spacing = 6,
+            Spacing = 7,
             VerticalOptions = LayoutOptions.End,
             Children =
             {
-                Theme.Pill("АКТИВНЫЙ АВТОМОБИЛЬ"),
+                Theme.Pill("ПОДКЛЮЧЕННЫЙ АВТОМОБИЛЬ"),
                 _selectedTitle,
                 _selectedVin,
                 _selectedMileage,
+                colorRow,
                 buttons
             }
         });
@@ -139,50 +166,7 @@ public sealed class VehiclesPage : ContentPage
         };
     }
 
-    private View BuildCatalogBanner()
-    {
-        var open = Theme.PrimaryButton("Открыть каталог");
-        open.FontSize = 12;
-        open.HeightRequest = 40;
-        open.Clicked += async (_, _) => await Shell.Current.GoToAsync("enginecatalog");
 
-        var grid = new Grid
-        {
-            ColumnDefinitions =
-            {
-                new ColumnDefinition(GridLength.Star),
-                new ColumnDefinition(GridLength.Auto)
-            },
-            ColumnSpacing = 12
-        };
-
-        grid.Add(new VerticalStackLayout
-        {
-            Spacing = 4,
-            Children =
-            {
-                Theme.Eyebrow("ENGINE LIBRARY"),
-                new Label
-                {
-                    Text = "Каталог двигателей",
-                    FontSize = 17,
-                    FontAttributes = FontAttributes.Bold,
-                    TextColor = Theme.Text,
-                    FontAutoScalingEnabled = false
-                },
-                Theme.MutedText("Фото модели • поколение • двигатели • быстрые проверки")
-            }
-        }, 0, 0);
-
-        open.VerticalOptions = LayoutOptions.Center;
-        grid.Add(open, 1, 0);
-
-        var card = Theme.CardView(grid, new Thickness(15), 18);
-        var tap = new TapGestureRecognizer();
-        tap.Tapped += async (_, _) => await Shell.Current.GoToAsync("enginecatalog");
-        card.GestureRecognizers.Add(tap);
-        return card;
-    }
 
     private View BuildStatusGrid()
     {
@@ -445,6 +429,9 @@ public sealed class VehiclesPage : ContentPage
 
         if (v is null)
         {
+            _selectedPhoto.Source = "hero_car.jpg";
+            _selectedColor.Text = "Цвет • не определён";
+            _selectedColorSwatch.Color = Theme.Line;
             _condition.Text = "Нет данных";
             _condition.TextColor = Theme.Muted;
             _dtc.Text = "—";
@@ -453,6 +440,8 @@ public sealed class VehiclesPage : ContentPage
             _activeWorks.Text = "0";
             return;
         }
+
+        await RefreshVehicleVisualAsync(v);
 
         var last = scans
             .Where(x => x.VehicleId == v.Id ||
@@ -525,6 +514,55 @@ public sealed class VehiclesPage : ContentPage
             _nextService.Text = "Нет связи";
             _nextService.TextColor = Theme.Red;
         }
+    }
+
+    private async Task RefreshVehicleVisualAsync(ServerVehicleRecord vehicle)
+    {
+        var visual = await _visual.ResolveAsync(vehicle);
+
+        _selectedColor.Text = string.IsNullOrWhiteSpace(visual.ColorName)
+            ? "Цвет • не определён"
+            : "Цвет • " + visual.ColorName +
+              (string.IsNullOrWhiteSpace(visual.PaintCode) ? "" : " • код " + visual.PaintCode);
+
+        _selectedColorSwatch.Color = VehicleVisualService.Swatch(visual.ColorName);
+
+        _selectedPhoto.Source = string.IsNullOrWhiteSpace(visual.PhotoUrl)
+            ? "hero_car.jpg"
+            : new UriImageSource
+            {
+                Uri = new Uri(visual.PhotoUrl),
+                CachingEnabled = true,
+                CacheValidity = TimeSpan.FromDays(30)
+            };
+    }
+
+    private async Task EditColorAsync()
+    {
+        var vehicle = _state.SelectedVehicle;
+        if (vehicle is null)
+        {
+            await DisplayAlert("AutoDiag Pro", "Сначала выберите или подключите автомобиль.", "OK");
+            return;
+        }
+
+        var current = await _visual.ResolveAsync(vehicle);
+        var color = await DisplayPromptAsync(
+            "Цвет автомобиля",
+            "Введите подтверждённый цвет кузова. Например: Black, Deep Black Pearl, Синий.",
+            initialValue: current.ColorName,
+            maxLength: 80);
+
+        if (color is null) return;
+
+        var paint = await DisplayPromptAsync(
+            "Код краски",
+            "Если код краски известен — введите его. Можно оставить пустым.",
+            initialValue: current.PaintCode,
+            maxLength: 40);
+
+        _visual.SaveColor(vehicle, color, paint ?? "");
+        await RefreshVehicleVisualAsync(vehicle);
     }
 
     private static bool IsClosed(string? status) =>

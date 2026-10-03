@@ -222,6 +222,9 @@ public sealed class DiagnosticsPage : ContentPage
         _vehicleColor.VerticalTextAlignment = TextAlignment.Center;
         colorRow.Add(_vehicleColor);
 
+        var editColor = DarkButton("Указать цвет кузова");
+        editColor.Clicked += async (_, _) => await EditConnectedVehicleColorAsync();
+
         return Theme.CardView(new VerticalStackLayout
         {
             Spacing = 8,
@@ -233,10 +236,39 @@ public sealed class DiagnosticsPage : ContentPage
                 _vehicle,
                 colorRow,
                 _protocol,
-                _voltage
+                _voltage,
+                editColor
             }
         });
     }
+    private async Task EditConnectedVehicleColorAsync()
+    {
+        var vehicle = _state.SelectedVehicle;
+        if (vehicle is null)
+        {
+            await DisplayAlert("AutoDiag Pro", "Сначала подключите и определите автомобиль.", "OK");
+            return;
+        }
+
+        var current = await _visual.ResolveAsync(vehicle);
+        var color = await DisplayPromptAsync(
+            "Цвет кузова",
+            "Введите подтверждённый цвет автомобиля.",
+            initialValue: current.ColorName,
+            maxLength: 80);
+        if (color is null) return;
+
+        var paint = await DisplayPromptAsync(
+            "Код краски",
+            "Введите код краски, если он известен. Можно оставить пустым.",
+            initialValue: current.PaintCode,
+            maxLength: 40);
+        if (paint is null) return;
+
+        _visual.SaveColor(vehicle, color, paint);
+        await RefreshVehicleVisualAsync(vehicle);
+    }
+
     private View BuildActionsCard()
     {
         var identify = DarkButton("Определить автомобиль по VIN");

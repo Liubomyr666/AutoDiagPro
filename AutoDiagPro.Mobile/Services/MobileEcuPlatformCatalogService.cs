@@ -37,6 +37,7 @@ public static class MobileEcuPlatformCatalogService
         M("09", "Central Electrics", "BCM / свет", "VAG-specific transport."),
         M("44", "Steering Assist", "Рулевое управление", "VAG-specific transport."),
         M("53", "Parking Brake", "EPB", "VAG-specific transport."),
+        M("TPMS", "Tyre Pressure", "TPMS", "VAG-specific profile where fitted."),
         M("5F", "Information Electronics", "Мультимедиа", "VAG-specific UDS/DoIP.")
     };
 
@@ -65,6 +66,8 @@ public static class MobileEcuPlatformCatalogService
         M("IC", "Instrument Cluster", "Приборная панель", "Mercedes OEM profile."),
         M("EIS/EZS", "Ignition / Access", "Доступ", "Mercedes OEM profile."),
         M("EPS", "Power Steering", "Рулевое управление", "Mercedes OEM profile."),
+        M("EPB", "Parking Brake", "EPB", "Mercedes OEM service profile."),
+        M("TPMS", "Tyre Pressure", "TPMS", "Mercedes OEM profile where fitted."),
         M("ADAS", "Radar / Camera", "ADAS", "UDS/DoIP/OEM.")
     };
 

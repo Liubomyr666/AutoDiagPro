@@ -32,6 +32,7 @@ public sealed class AppShell : Shell
         Routing.RegisterRoute("vehicleidentity", typeof(VehicleIdentityPage));
         Routing.RegisterRoute("diesel", typeof(DieselPage));
         Routing.RegisterRoute("injectors", typeof(InjectorPage));
+        Routing.RegisterRoute("smartservice", typeof(SmartServicePage));
 
         var tabs = new TabBar();
 

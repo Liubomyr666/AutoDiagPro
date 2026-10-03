@@ -1,0 +1,17 @@
+AutoDiag Pro iOS 3.30.0 build 57
+
+Windows parity update:
+- Live Data 2.0: 1-second refresh, large real-time graph, PID picker, Current / Min / Max
+- trip/session recording, last 10 sessions in memory
+- automatic and manual ДО / ПОСЛЕ session selection
+- selected-PID averages and delta
+- full multi-PID ДО / ПОСЛЕ comparison
+- CSV export through iOS Share Sheet
+- Smart Service page with VIN/make/fuel-aware function filtering
+- service reset, EPB, ABS bleed, SAS, battery, DPF/SCR, injectors, throttle, transmission and TPMS capability display
+- Preflight checks VIN match, voltage, protocol and engine DTC count
+- ECU write remains blocked on iPhone BLE/Wi-Fi ELM/Vgate when an OEM-specific backend is required
+- existing Service Planner, Injectors and Battery/Programming Center are linked from Smart Service
+
+Validation:
+- Windows-hosted iOS simulator compile: SUCCESS, 0 warnings, 0 errors

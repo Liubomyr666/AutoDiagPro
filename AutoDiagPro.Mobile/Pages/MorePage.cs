@@ -27,7 +27,7 @@ public sealed class MorePage : ContentPage
                         Children =
                         {
                             Theme.Pill(AccessPolicy.FriendlyRole, Theme.Green),
-                            Theme.Body("Структура синхронизирована с AutoDiag Pro Windows v5.4.0. Открываются только реальные мобильные экраны — без пустых заглушек.")
+                            Theme.Body("Структура синхронизирована с AutoDiag Pro Windows 7.10.3. Открываются только реальные мобильные экраны — без пустых заглушек.")
                         }
                     }),
                     BuildGroup("ДИАГНОСТИКА", new[]
@@ -37,7 +37,7 @@ public sealed class MorePage : ContentPage
                         Item("Быстрое сканирование", "VIN, DTC и базовые параметры", "//diagnostics"),
                         Item("Блоки управления ECU", "ECU / calibration identification", "ecu"),
                         Item("Ошибки DTC", "Коды неисправностей и AI-разбор", "//diagnostics"),
-                        Item("Живые данные", "Live Data / PID", "live"),
+                        Item("Живые данные 2.0", "Графики • запись поездки • ДО/ПОСЛЕ • CSV", "live"),
                         Item("Форсунки", "Fuel pressure • trims • MAF • injector live", "injectors"),
                         Item("Дизель / топливная система", "Fuel pressure • trims • MAF • diesel live", "diesel"),
                         Item("Пробег", "Доступные mileage-данные", "mileage"),
@@ -61,7 +61,7 @@ public sealed class MorePage : ContentPage
                         Program("Tuning / Stage", "Stock • Stage • ECU/TCU preparation"),
                         Program("Кодирование / Адаптации", "Coding • adaptations • configuration"),
                         Program("Ключи и иммобилайзер", "Key / immobilizer capability check"),
-                        Program("Сервисные функции ECU", "Reset • EPB • DPF • service"),
+                        Item("Smart Service", "VIN • EPB • DPF • ABS • SAS • АКБ • preflight", "smartservice"),
                         Program("АКБ / Battery Coding", "Battery registration / coding profile")
                     }),
                     BuildGroup("СТО", new[]

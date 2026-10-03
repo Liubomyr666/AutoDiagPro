@@ -18,9 +18,15 @@ public sealed class RepairBrainPage : ContentPage
     private readonly Editor _repair = Field("Что сделано");
     private readonly Editor _notes = Field("Заметки / измерения");
     private readonly Label _proof = Theme.MutedText("Скан ДО/ПОСЛЕ ещё не сравнивался.");
+    private readonly Label _beforeDtcMetric = MetricValue();
+    private readonly Label _resolvedDtcMetric = MetricValue();
+    private readonly Label _remainingDtcMetric = MetricValue();
+    private readonly Label _newDtcMetric = MetricValue();
+    private readonly Label _comparisonVerdict = Theme.MutedText("Запишите scan ДО и контрольный scan ПОСЛЕ.");
     private readonly Image _beforePhoto = new() { HeightRequest = 150, Aspect = Aspect.AspectFill, IsVisible = false };
     private readonly Image _afterPhoto = new() { HeightRequest = 150, Aspect = Aspect.AspectFill, IsVisible = false };
     private RepairCaseMobile? _case;
+    private RepairScanComparisonMobile? _comparison;
 
     public RepairBrainPage()
     {
@@ -36,6 +42,9 @@ public sealed class RepairBrainPage : ContentPage
 
         var after = Theme.SecondaryButton("Контрольный scan ПОСЛЕ");
         after.Clicked += async (_, _) => await CaptureAfterAsync();
+
+        var shareReport = Theme.PrimaryButton("Поделиться отчётом ДО / ПОСЛЕ");
+        shareReport.Clicked += async (_, _) => await ShareComparisonReportAsync();
 
         var ai = Theme.SecondaryButton("AI: план ремонта");
         ai.Clicked += async (_, _) => await AskAiAsync();
@@ -73,7 +82,12 @@ public sealed class RepairBrainPage : ContentPage
                         Children =
                         {
                             Theme.Eyebrow("ДО / ПОСЛЕ"),
-                            before, after, _proof
+                            before,
+                            after,
+                            BuildComparisonMetrics(),
+                            _comparisonVerdict,
+                            _proof,
+                            shareReport
                         }
                     }),
                     Theme.CardView(new VerticalStackLayout
@@ -94,6 +108,50 @@ public sealed class RepairBrainPage : ContentPage
             }
         };
     }
+
+    private View BuildComparisonMetrics()
+    {
+        var grid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Star)
+            },
+            RowDefinitions =
+            {
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 8,
+            RowSpacing = 8
+        };
+
+        grid.Add(MetricCard("DTC ДО", _beforeDtcMetric), 0, 0);
+        grid.Add(MetricCard("ИСПРАВЛЕНО", _resolvedDtcMetric), 1, 0);
+        grid.Add(MetricCard("ОСТАЛОСЬ", _remainingDtcMetric), 0, 1);
+        grid.Add(MetricCard("НОВЫЕ", _newDtcMetric), 1, 1);
+        return grid;
+    }
+
+    private static View MetricCard(string title, Label value) =>
+        Theme.CardView(new VerticalStackLayout
+        {
+            Spacing = 4,
+            Children =
+            {
+                Theme.Eyebrow(title),
+                value
+            }
+        }, new Thickness(12));
+
+    private static Label MetricValue() => new()
+    {
+        Text = "—",
+        FontSize = 22,
+        FontAttributes = FontAttributes.Bold,
+        TextColor = Theme.Text
+    };
 
     protected override async void OnAppearing()
     {
@@ -199,20 +257,24 @@ public sealed class RepairBrainPage : ContentPage
 
         try
         {
-            var dtc = await _obd.DtcAsync();
-            var live = await _obd.LiveSnapshotAsync();
-            _case.BeforeScan =
-                (dtc.Count == 0 ? "DTC: нет" : "DTC: " + string.Join(", ", dtc)) +
-                "\n" + string.Join("\n", live.Select(x => $"{x.Key}: {x.Value}"));
-            _case.DtcCodes = string.Join(", ", dtc);
+            _status.Text = "Записываю полный scan ДО...";
+            _status.TextColor = Theme.Accent;
+
+            var snapshot = await CaptureRepairSnapshotAsync();
+            _case.BeforeSnapshot = snapshot;
+            _case.BeforeScan = RepairScanComparisonService.BuildSnapshotText(snapshot);
+            _case.DtcCodes = string.Join(", ", snapshot.AllDtc);
             _case.UpdatedAt = DateTimeOffset.Now;
-            _state.LastDtcCodes = dtc;
+
+            _state.LastDtcCodes = snapshot.AllDtc.ToList();
             _state.LastDiagnosticSummary = _case.BeforeScan;
             _state.LastDiagnosticAtUtc = DateTimeOffset.Now;
+
             await _store.SaveAsync(await _store.LoadAsync());
             RenderDtcCards();
             RefreshProof();
-            _status.Text = "Scan ДО сохранён.";
+
+            _status.Text = $"Scan ДО сохранён • DTC {snapshot.AllDtc.Count} • Live {snapshot.Live.Count}.";
             _status.TextColor = Theme.Green;
         }
         catch (Exception ex)
@@ -234,19 +296,29 @@ public sealed class RepairBrainPage : ContentPage
 
         try
         {
-            var dtc = await _obd.DtcAsync();
-            var live = await _obd.LiveSnapshotAsync();
-            _case.AfterScan =
-                (dtc.Count == 0 ? "DTC: нет" : "DTC: " + string.Join(", ", dtc)) +
-                "\n" + string.Join("\n", live.Select(x => $"{x.Key}: {x.Value}"));
+            _status.Text = "Записываю контрольный scan ПОСЛЕ...";
+            _status.TextColor = Theme.Accent;
+
+            var snapshot = await CaptureRepairSnapshotAsync();
+            _case.AfterSnapshot = snapshot;
+            _case.AfterScan = RepairScanComparisonService.BuildSnapshotText(snapshot);
             _case.UpdatedAt = DateTimeOffset.Now;
-            if (dtc.Count == 0 && !string.IsNullOrWhiteSpace(_case.RepairDone))
+
+            _state.LastDtcCodes = snapshot.AllDtc.ToList();
+            _state.LastDiagnosticSummary = _case.AfterScan;
+            _state.LastDiagnosticAtUtc = DateTimeOffset.Now;
+
+            if (snapshot.AllDtc.Count == 0 && !string.IsNullOrWhiteSpace(_case.RepairDone))
                 _case.Status = "Закрыт";
 
             await _store.SaveAsync(await _store.LoadAsync());
+            RenderDtcCards();
             RefreshProof();
-            _status.Text = dtc.Count == 0 ? "Контрольный scan: стандартных DTC нет." : $"После ремонта осталось DTC: {string.Join(", ", dtc)}";
-            _status.TextColor = dtc.Count == 0 ? Theme.Green : Theme.Accent;
+
+            _status.Text = snapshot.AllDtc.Count == 0
+                ? "Контрольный scan: стандартных DTC нет."
+                : $"После ремонта DTC: {string.Join(", ", snapshot.AllDtc)}";
+            _status.TextColor = snapshot.AllDtc.Count == 0 ? Theme.Green : Theme.Accent;
         }
         catch (Exception ex)
         {
@@ -255,10 +327,77 @@ public sealed class RepairBrainPage : ContentPage
         }
     }
 
+    private async Task<RepairScanSnapshotMobile> CaptureRepairSnapshotAsync()
+    {
+        var confirmed = await _obd.DtcAsync();
+        var pending = await _obd.PendingDtcAsync();
+        var permanent = await _obd.PermanentDtcAsync();
+        var live = await _obd.LiveSnapshotAsync();
+        var vin = await _obd.VinAsync();
+        var protocol = await _obd.ProtocolAsync();
+        var voltage = await _obd.VoltageAsync();
+
+        var expectedVin = (_state.SelectedVehicle?.Vin ?? "").Trim().ToUpperInvariant();
+        var actualVin = (vin ?? "").Trim().ToUpperInvariant();
+        if (expectedVin.Length == 17 && actualVin.Length == 17 &&
+            !string.Equals(expectedVin, actualVin, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"VIN не совпадает: выбран {expectedVin}, ECU {actualVin}. Scan не сохранён.");
+
+        return new RepairScanSnapshotMobile
+        {
+            CapturedAt = DateTimeOffset.Now,
+            Vin = actualVin,
+            Protocol = protocol ?? "",
+            Voltage = voltage ?? "",
+            ConfirmedDtc = confirmed.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            PendingDtc = pending.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            PermanentDtc = permanent.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            Live = new Dictionary<string, string>(live, StringComparer.OrdinalIgnoreCase)
+        };
+    }
+
     private void RefreshProof()
     {
         if (_case is null) return;
-        if (string.IsNullOrWhiteSpace(_case.BeforeScan) && string.IsNullOrWhiteSpace(_case.AfterScan))
+
+        _comparison = null;
+        _beforeDtcMetric.Text = "—";
+        _resolvedDtcMetric.Text = "—";
+        _remainingDtcMetric.Text = "—";
+        _newDtcMetric.Text = "—";
+
+        if (_case.BeforeSnapshot is not null && _case.AfterSnapshot is not null)
+        {
+            _comparison = RepairScanComparisonService.Compare(
+                _case.BeforeSnapshot,
+                _case.AfterSnapshot);
+
+            _beforeDtcMetric.Text = _comparison.BeforeCount.ToString();
+            _resolvedDtcMetric.Text = _comparison.Resolved.Count.ToString();
+            _remainingDtcMetric.Text = _comparison.Remaining.Count.ToString();
+            _newDtcMetric.Text = _comparison.Added.Count.ToString();
+            _comparisonVerdict.Text = RepairScanComparisonService.Verdict(_comparison);
+            _comparisonVerdict.TextColor =
+                _comparison.Added.Count == 0 && _comparison.Remaining.Count == 0
+                    ? Theme.Green
+                    : Theme.Accent;
+
+            var vehicle = _state.SelectedVehicle?.DisplayName ?? "Автомобиль";
+            _proof.Text = RepairScanComparisonService.BuildReport(
+                _comparison,
+                vehicle,
+                _complaint.Text,
+                _cause.Text,
+                _repair.Text);
+            return;
+        }
+
+        _comparisonVerdict.Text = "Запишите scan ДО и контрольный scan ПОСЛЕ.";
+        _comparisonVerdict.TextColor = Theme.TextSoft;
+
+        if (string.IsNullOrWhiteSpace(_case.BeforeScan) &&
+            string.IsNullOrWhiteSpace(_case.AfterScan))
         {
             _proof.Text = "Скан ДО/ПОСЛЕ ещё не сравнивался.";
             return;
@@ -267,6 +406,39 @@ public sealed class RepairBrainPage : ContentPage
         _proof.Text =
             "ДО:\n" + (string.IsNullOrWhiteSpace(_case.BeforeScan) ? "—" : _case.BeforeScan) +
             "\n\nПОСЛЕ:\n" + (string.IsNullOrWhiteSpace(_case.AfterScan) ? "—" : _case.AfterScan);
+    }
+
+    private async Task ShareComparisonReportAsync()
+    {
+        if (_comparison is null)
+        {
+            await DisplayAlert(
+                "До / После",
+                "Сначала запишите scan ДО и контрольный scan ПОСЛЕ.",
+                "OK");
+            return;
+        }
+
+        var vehicle = _state.SelectedVehicle?.DisplayName ?? "Автомобиль";
+        var text = RepairScanComparisonService.BuildReport(
+            _comparison,
+            vehicle,
+            _complaint.Text,
+            _cause.Text,
+            _repair.Text);
+
+        var vin = _comparison.After.Vin;
+        if (string.IsNullOrWhiteSpace(vin)) vin = "vehicle";
+        var path = Path.Combine(
+            FileSystem.CacheDirectory,
+            $"AutoDiag_BEFORE_AFTER_{vin}_{DateTime.Now:yyyyMMdd_HHmm}.txt");
+        await File.WriteAllTextAsync(path, text);
+
+        await Share.Default.RequestAsync(new ShareFileRequest
+        {
+            Title = "AutoDiag Pro — До / После ремонта",
+            File = new ShareFile(path)
+        });
     }
 
     private async Task AskAiAsync()

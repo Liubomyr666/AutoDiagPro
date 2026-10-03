@@ -173,8 +173,7 @@ public sealed class VehicleVisualService
             vehicle.Make ?? "",
             vehicle.Model ?? "",
             includeYear ? vehicle.Year?.ToString() ?? "" : "",
-            color,
-            "road car"
+            color
         };
         return string.Join(" ", parts.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
     }

@@ -30,7 +30,7 @@ public sealed class DiagnosticsPage : ContentPage
         FontAutoScalingEnabled = false
     };
     private readonly Label _vehicle = Theme.MutedText("VIN • —");
-    private readonly Image _vehiclePhoto = new() { Source = "hero_car.jpg", Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
+    private readonly Image _vehiclePhoto = new() { Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
     private readonly Label _vehicleColor = Theme.MutedText("Цвет • не определён");
     private readonly BoxView _vehicleColorSwatch = new() { WidthRequest = 14, HeightRequest = 14, Color = Theme.Line };
     private readonly Label _protocol = Theme.MutedText("Протокол • —");
@@ -434,7 +434,7 @@ public sealed class DiagnosticsPage : ContentPage
     {
         if (vehicle is null)
         {
-            _vehiclePhoto.Source = "hero_car.jpg";
+            _vehiclePhoto.Source = null;
             _vehicleColor.Text = "Цвет • не определён";
             _vehicleColorSwatch.Color = Theme.Line;
             return;
@@ -450,7 +450,7 @@ public sealed class DiagnosticsPage : ContentPage
 
         _vehicleColorSwatch.Color = VehicleVisualService.Swatch(visual.ColorName);
         _vehiclePhoto.Source = string.IsNullOrWhiteSpace(visual.PhotoUrl)
-            ? "hero_car.jpg"
+            ? null
             : new UriImageSource
             {
                 Uri = new Uri(visual.PhotoUrl),
@@ -788,7 +788,7 @@ public sealed class DiagnosticsPage : ContentPage
         if (existing is not null)
         {
             if (string.IsNullOrWhiteSpace(existing.Make) && !string.IsNullOrWhiteSpace(decoded?.Make)) existing.Make = decoded!.Make;
-            if (string.IsNullOrWhiteSpace(existing.Model) && !string.IsNullOrWhiteSpace(decoded?.Model)) existing.Model = decoded!.Model;
+            if (string.IsNullOrWhiteSpace(existing.Model)) existing.Model = !string.IsNullOrWhiteSpace(decoded?.Model) ? decoded!.Model : VehicleIdentityService.InferModel(identity.Vin);
             if (existing.Year is null) existing.Year = decoded?.ParsedYear ?? identity.ModelYear;
             _state.SelectedVehicle = existing;
             return existing;
@@ -802,7 +802,7 @@ public sealed class DiagnosticsPage : ContentPage
                 Make = !string.IsNullOrWhiteSpace(decoded?.Make)
                     ? decoded!.Make
                     : string.Equals(identity.Make, "Не определено", StringComparison.OrdinalIgnoreCase) ? null : identity.Make,
-                Model = string.IsNullOrWhiteSpace(decoded?.Model) ? null : decoded!.Model,
+                Model = !string.IsNullOrWhiteSpace(decoded?.Model) ? decoded!.Model : VehicleIdentityService.InferModel(identity.Vin),
                 Year = decoded?.ParsedYear ?? identity.ModelYear
             });
 

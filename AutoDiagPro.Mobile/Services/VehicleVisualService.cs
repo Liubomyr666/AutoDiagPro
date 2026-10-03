@@ -46,41 +46,30 @@ public sealed class VehicleVisualService
             }
         }
 
-        var photoKey = key + "_photo_v2";
-        var photoUrl = Preferences.Default.Get(photoKey, "");
-        if (string.IsNullOrWhiteSpace(photoUrl))
-        {
-            var normalizedColor = NormalizeColorForSearch(color);
+        var photoKey = key + "_photo_v3";
+        var normalizedColor = NormalizeColorForSearch(color);
+        var hasExactIdentity =
+            !string.IsNullOrWhiteSpace(vehicle.Make) &&
+            !string.IsNullOrWhiteSpace(vehicle.Model) &&
+            !string.IsNullOrWhiteSpace(normalizedColor);
 
-            if (!string.IsNullOrWhiteSpace(normalizedColor))
+        var photoUrl = hasExactIdentity
+            ? Preferences.Default.Get(photoKey, "")
+            : "";
+
+        if (hasExactIdentity && string.IsNullOrWhiteSpace(photoUrl))
+        {
+            photoUrl = await ResolvePhotoUrlAsync(
+                BuildPhotoQuery(vehicle, normalizedColor, includeYear: true),
+                normalizedColor,
+                ct) ?? "";
+
+            if (string.IsNullOrWhiteSpace(photoUrl))
             {
                 photoUrl = await ResolvePhotoUrlAsync(
-                    BuildPhotoQuery(vehicle, normalizedColor, includeYear: true),
+                    BuildPhotoQuery(vehicle, normalizedColor, includeYear: false),
                     normalizedColor,
                     ct) ?? "";
-
-                if (string.IsNullOrWhiteSpace(photoUrl))
-                {
-                    photoUrl = await ResolvePhotoUrlAsync(
-                        BuildPhotoQuery(vehicle, normalizedColor, includeYear: false),
-                        normalizedColor,
-                        ct) ?? "";
-                }
-            }
-            else
-            {
-                photoUrl = await ResolvePhotoUrlAsync(
-                    BuildPhotoQuery(vehicle, "", includeYear: true),
-                    null,
-                    ct) ?? "";
-
-                if (string.IsNullOrWhiteSpace(photoUrl))
-                {
-                    photoUrl = await ResolvePhotoUrlAsync(
-                        BuildPhotoQuery(vehicle, "", includeYear: false),
-                        null,
-                        ct) ?? "";
-                }
             }
 
             if (!string.IsNullOrWhiteSpace(photoUrl))
@@ -98,6 +87,7 @@ public sealed class VehicleVisualService
         Preferences.Default.Set(key + "_source", source);
         Preferences.Default.Remove(key + "_photo");
         Preferences.Default.Remove(key + "_photo_v2");
+        Preferences.Default.Remove(key + "_photo_v3");
     }
 
     public static Color Swatch(string? colorName)
@@ -168,14 +158,45 @@ public sealed class VehicleVisualService
 
     private static string BuildPhotoQuery(ServerVehicleRecord vehicle, string color, bool includeYear)
     {
-        var parts = new[]
-        {
-            vehicle.Make ?? "",
-            vehicle.Model ?? "",
-            includeYear ? vehicle.Year?.ToString() ?? "" : "",
-            color
-        };
+        var seriesHint = VehicleSeriesHint(vehicle);
+        var parts = string.IsNullOrWhiteSpace(seriesHint)
+            ? new[]
+            {
+                vehicle.Make ?? "",
+                vehicle.Model ?? "",
+                includeYear ? vehicle.Year?.ToString() ?? "" : "",
+                color
+            }
+            : new[]
+            {
+                vehicle.Make ?? "",
+                seriesHint,
+                includeYear ? vehicle.Year?.ToString() ?? "" : "",
+                color
+            };
+
         return string.Join(" ", parts.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+    }
+
+    private static string VehicleSeriesHint(ServerVehicleRecord vehicle)
+    {
+        var vin = VehicleIdentityService.Normalize(vehicle.Vin);
+        if (vin.Length != 17 ||
+            !string.Equals(vehicle.Make, "Mercedes-Benz", StringComparison.OrdinalIgnoreCase))
+            return "";
+
+        var series = vin.Substring(3, 3);
+        var bodyDigit = vin[6];
+
+        return series switch
+        {
+            "204" => bodyDigit == '2' ? "S204" : "W204",
+            "205" => bodyDigit == '2' ? "S205" : "W205",
+            "206" => bodyDigit == '2' ? "S206" : "W206",
+            "212" => bodyDigit == '2' ? "S212" : "W212",
+            "213" => bodyDigit == '2' ? "S213" : "W213",
+            _ => series
+        };
     }
 
     private static async Task<string?> ResolvePhotoUrlAsync(string search, string? desiredColor, CancellationToken ct)
@@ -206,7 +227,10 @@ public sealed class VehicleVisualService
                 "livery", "art car", "show car", "concept", "prototype",
                 "render", "drawing", "illustration", "vector", "logo", "poster",
                 "toy", "model car", "scale model", "wreck", "crash", "damaged",
-                "bosch", "sponsor", "replica"
+                "bosch", "sponsor", "replica",
+                "interior", "dashboard", "cockpit", "steering wheel", "engine bay",
+                "headlight", "tail light", "taillight", "wheel", "rim", "grille",
+                "badge", "emblem", "close-up", "closeup", "detail", "cutaway"
             };
 
             string? bestUrl = null;
@@ -226,6 +250,8 @@ public sealed class VehicleVisualService
 
                 var info = infos[0];
                 var evidence = (lowerTitle + " " + info.GetRawText()).ToLowerInvariant();
+                if (banned.Any(evidence.Contains))
+                    continue;
                 if (!string.IsNullOrWhiteSpace(desiredColor) &&
                     !evidence.Contains(desiredColor.ToLowerInvariant()))
                     continue;
@@ -276,7 +302,7 @@ public sealed class VehicleVisualService
                 }
             }
 
-            return bestUrl;
+            return bestScore >= 8 ? bestUrl : null;
         }
         catch
         {

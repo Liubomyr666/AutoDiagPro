@@ -10,7 +10,7 @@ public sealed class VehiclesPage : ContentPage
     private readonly VehicleVisualService _visual;
 
     private readonly VerticalStackLayout _vehicleCards = new() { Spacing = 10 };
-    private readonly Image _selectedPhoto = new() { Source = "hero_car.jpg", Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
+    private readonly Image _selectedPhoto = new() { Aspect = Aspect.AspectFit, BackgroundColor = Theme.Surface };
     private readonly Label _selectedColor = Theme.MutedText("Цвет • не определён");
     private readonly BoxView _selectedColorSwatch = new() { WidthRequest = 14, HeightRequest = 14, Color = Theme.Line };
     private readonly Label _status = Theme.MutedText("Загрузка...");
@@ -432,7 +432,7 @@ public sealed class VehiclesPage : ContentPage
 
         if (v is null)
         {
-            _selectedPhoto.Source = "hero_car.jpg";
+            _selectedPhoto.Source = null;
             _selectedColor.Text = "Цвет • не определён";
             _selectedColorSwatch.Color = Theme.Line;
             _condition.Text = "Нет данных";
@@ -531,7 +531,7 @@ public sealed class VehiclesPage : ContentPage
         _selectedColorSwatch.Color = VehicleVisualService.Swatch(visual.ColorName);
 
         _selectedPhoto.Source = string.IsNullOrWhiteSpace(visual.PhotoUrl)
-            ? "hero_car.jpg"
+            ? null
             : new UriImageSource
             {
                 Uri = new Uri(visual.PhotoUrl),

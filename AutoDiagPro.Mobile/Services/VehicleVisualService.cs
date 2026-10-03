@@ -158,25 +158,45 @@ public sealed class VehicleVisualService
 
     private static string BuildPhotoQuery(ServerVehicleRecord vehicle, string color, bool includeYear)
     {
-        var parts = new[]
-        {
-            vehicle.Make ?? "",
-            vehicle.Model ?? "",
-            VehicleSeriesHint(vehicle),
-            includeYear ? vehicle.Year?.ToString() ?? "" : "",
-            color,
-            "road car"
-        };
+        var seriesHint = VehicleSeriesHint(vehicle);
+        var parts = string.IsNullOrWhiteSpace(seriesHint)
+            ? new[]
+            {
+                vehicle.Make ?? "",
+                vehicle.Model ?? "",
+                includeYear ? vehicle.Year?.ToString() ?? "" : "",
+                color
+            }
+            : new[]
+            {
+                vehicle.Make ?? "",
+                seriesHint,
+                includeYear ? vehicle.Year?.ToString() ?? "" : "",
+                color
+            };
+
         return string.Join(" ", parts.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
     }
 
     private static string VehicleSeriesHint(ServerVehicleRecord vehicle)
     {
         var vin = VehicleIdentityService.Normalize(vehicle.Vin);
-        if (vin.Length == 17 &&
-            string.Equals(vehicle.Make, "Mercedes-Benz", StringComparison.OrdinalIgnoreCase))
-            return vin.Substring(3, 3);
-        return "";
+        if (vin.Length != 17 ||
+            !string.Equals(vehicle.Make, "Mercedes-Benz", StringComparison.OrdinalIgnoreCase))
+            return "";
+
+        var series = vin.Substring(3, 3);
+        var bodyDigit = vin[6];
+
+        return series switch
+        {
+            "204" => bodyDigit == '2' ? "S204" : "W204",
+            "205" => bodyDigit == '2' ? "S205" : "W205",
+            "206" => bodyDigit == '2' ? "S206" : "W206",
+            "212" => bodyDigit == '2' ? "S212" : "W212",
+            "213" => bodyDigit == '2' ? "S213" : "W213",
+            _ => series
+        };
     }
 
     private static async Task<string?> ResolvePhotoUrlAsync(string search, string? desiredColor, CancellationToken ct)
